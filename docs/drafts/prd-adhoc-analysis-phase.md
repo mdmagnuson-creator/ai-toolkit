@@ -24,29 +24,30 @@ Task Specs follow the **same lifecycle as PRDs** but in a parallel folder struct
 | **Completed location** | `docs/tasks/completed/` | `docs/completed/` |
 | **Abandoned location** | `docs/tasks/abandoned/` | `docs/abandoned/` |
 | **Registry** | `docs/task-registry.json` | `docs/prd-registry.json` |
-| **Scope** | Any size (single request) | Planned features |
+| **Story prefix** | `TSK-001`, `TSK-002`, etc. | `US-001`, `US-002`, etc. |
 | **User involvement** | Confirm understanding | Multi-round refinement |
 
 **Strict separation:** 
 - Builder NEVER creates or modifies files in `docs/prds/`, `docs/drafts/`, `docs/completed/`, or `docs/prd-registry.json`
 - Planner NEVER creates or modifies files in `docs/tasks/` or `docs/task-registry.json`
+- Exception: Builder MAY inject `TSK-###` stories into an active PRD at user request (see US-007)
 
 ## Goals
 
-- Analyze ALL ad-hoc requests consistently (no fast-path exceptions)
-- Generate Task Specs for every ad-hoc request
+- Analyze ALL ad-hoc requests consistently with progress visibility
+- Generate Task Specs for every ad-hoc request (using story format with acceptance criteria)
 - Track Task Specs with same lifecycle as PRDs (draft → ready → in_progress → completed)
-- Surface potential conflicts with existing code/architecture
-- Present alternative approaches when relevant
-- Identify downstream consequences (breaking changes, migrations, etc.)
-- Enable Task Spec promotion to formal PRD when scope grows
-- Recommend formal PRD creation for large requests upfront
+- Surface potential conflicts via AST/import analysis
+- Present alternative approaches with recommendations
+- Identify downstream consequences with severity levels
+- Auto-create promotion documents for medium/large scope (easy path to Planner)
+- Support mid-PRD task injection with clear `TSK-###` labeling
 
 ## User Stories
 
 ### US-001: Consistent Request Analysis
 
-**Description:** As a user, I want Builder to analyze every ad-hoc request the same way so that I have consistent visibility regardless of request size.
+**Description:** As a user, I want Builder to analyze every ad-hoc request with visible progress so that I understand what's happening and can confirm Builder's understanding.
 
 **Documentation:** No
 
@@ -54,16 +55,17 @@ Task Specs follow the **same lifecycle as PRDs** but in a parallel folder struct
 
 **Acceptance Criteria:**
 
-- [ ] Every ad-hoc request triggers full analysis (no trivial fast-path)
-- [ ] Builder reads `project.json` and relevant source files to understand context
-- [ ] Builder outputs an "Understanding" section summarizing the request
-- [ ] Understanding includes: affected files/components, scope estimate, approach
+- [ ] Every ad-hoc request triggers full analysis (no exceptions)
+- [ ] Analysis uses AST/import tracing to find all impacted files
+- [ ] Progress indicator shows analysis status as it runs (e.g., "Scanning imports... Checking dependencies... Estimating scope...")
+- [ ] Analysis is time-boxed to 10 seconds; if incomplete, show what's found with note "analysis may be incomplete"
+- [ ] Builder outputs confidence level: "High/Medium/Low confidence in this understanding"
+- [ ] Understanding section summarizes: what user wants, affected files, scope estimate
 - [ ] User confirms understanding before Task Spec is generated
-- [ ] Analysis time is optimized but not skipped
 
 ### US-002: Clarifying Questions
 
-**Description:** As a user, I want Builder to ask clarifying questions when my request is ambiguous so that it doesn't make wrong assumptions.
+**Description:** As a user, I want Builder to always verify its understanding and ask clarifying questions when ambiguous so that implementation matches my intent.
 
 **Documentation:** No
 
@@ -71,15 +73,18 @@ Task Specs follow the **same lifecycle as PRDs** but in a parallel folder struct
 
 **Acceptance Criteria:**
 
-- [ ] Builder identifies ambiguities in the request (scope, approach, behavior)
-- [ ] Builder asks 1-3 focused clarifying questions with lettered options
-- [ ] User can respond with letters (e.g., "1A, 2B") for quick answers
-- [ ] Builder incorporates answers into Task Spec
-- [ ] If no ambiguities exist, Builder states "No clarifying questions needed"
+- [ ] Builder ALWAYS provides its interpretation and asks user to verify understanding
+- [ ] Builder identifies ambiguities: multiple interpretations OR missing information needed to implement
+- [ ] Questions are presented in series format (one story-worth of questions at a time, like this PRD refinement)
+- [ ] User can respond with letter codes (e.g., "1A, 2B") for quick answers
+- [ ] Single round of questions — ask all at once, then proceed
+- [ ] User can skip questions with "just do it" and Builder proceeds with stated interpretation
+- [ ] For medium/large scope requests, Builder suggests using Planner and auto-creates promotion document
+- [ ] User can always override and ask Builder to proceed anyway
 
 ### US-003: Alternative Approaches
 
-**Description:** As a user, I want Builder to present alternative approaches when relevant so that I can choose the best solution.
+**Description:** As a user, I want Builder to present alternative approaches when meaningful trade-offs exist so that I can make an informed decision.
 
 **Documentation:** No
 
@@ -87,16 +92,17 @@ Task Specs follow the **same lifecycle as PRDs** but in a parallel folder struct
 
 **Acceptance Criteria:**
 
-- [ ] Builder identifies when multiple valid approaches exist
-- [ ] Builder presents 2-3 alternatives with pros/cons
-- [ ] Each alternative includes estimated complexity and impact
+- [ ] Builder identifies when multiple approaches have meaningful trade-offs
+- [ ] Builder presents 2-3 alternatives with 2-3 bullet points each (pros/cons)
+- [ ] Each alternative includes complexity indication
+- [ ] Builder ALWAYS makes a recommendation: "Recommended: X because Y"
 - [ ] User can select an approach or ask for more detail
 - [ ] Selected approach is recorded in Task Spec
-- [ ] If only one obvious approach exists, Builder states "Recommended approach: X"
+- [ ] If only one sensible approach, Builder states recommendation without alternatives
 
 ### US-004: Downstream Consequences
 
-**Description:** As a user, I want Builder to warn me about downstream consequences so that I understand the full impact of my request.
+**Description:** As a user, I want Builder to identify downstream consequences with clear severity so that I understand the full impact before implementation.
 
 **Documentation:** No
 
@@ -104,17 +110,20 @@ Task Specs follow the **same lifecycle as PRDs** but in a parallel folder struct
 
 **Acceptance Criteria:**
 
-- [ ] Builder identifies breaking changes (API changes, schema changes, etc.)
-- [ ] Builder identifies migration needs (database, config, etc.)
-- [ ] Builder identifies dependency impacts (other components that use affected code)
-- [ ] Builder identifies test impacts (tests that will need updating)
-- [ ] Consequences are recorded in Task Spec
-- [ ] Consequences are shown before implementation
-- [ ] If no consequences identified, Builder states "No downstream consequences identified"
+- [ ] Builder uses all discovery methods: static analysis, semantic understanding, and checklist review
+- [ ] Consequences are categorized by severity:
+  - **Critical** — blocks deployment, requires immediate attention
+  - **Warning** — needs attention, could cause issues
+  - **Info** — FYI, minor impact
+- [ ] Consequences include impact scope: "affects 2 files" vs "affects 15 files across 3 modules"
+- [ ] Identifies: breaking changes, migration needs, dependency impacts, test impacts
+- [ ] Consequences shown before implementation, recorded in Task Spec
+- [ ] No effort estimates (just identify, don't estimate time)
+- [ ] If no consequences: "No downstream consequences identified"
 
 ### US-005: Task Spec Generation
 
-**Description:** As a user, I want Builder to generate a Task Spec document for every ad-hoc request so that my work is tracked like PRD work.
+**Description:** As a user, I want Builder to generate a Task Spec with stories and acceptance criteria matching PRD format so that tracking is consistent.
 
 **Documentation:** No
 
@@ -122,16 +131,17 @@ Task Specs follow the **same lifecycle as PRDs** but in a parallel folder struct
 
 **Acceptance Criteria:**
 
-- [ ] Builder generates Task Spec for every ad-hoc request (no exceptions)
-- [ ] Task Spec is initially saved to `docs/tasks/drafts/task-YYYY-MM-DD-brief-name.md`
-- [ ] Task Spec includes: summary, scope, approach, tasks (with acceptance criteria), consequences
-- [ ] Task Spec format mirrors PRD structure (tasks instead of user stories)
-- [ ] Task Spec is shown to user for confirmation
-- [ ] On confirmation, Task Spec moves to `docs/tasks/task-YYYY-MM-DD-brief-name.md` (ready)
+- [ ] Builder generates Task Spec for every ad-hoc request
+- [ ] Task Spec uses story format with `TSK-001`, `TSK-002`, etc. numbering
+- [ ] Each story has acceptance criteria checkboxes (matching PRD story format)
+- [ ] Task Spec saved to `docs/tasks/drafts/task-YYYY-MM-DD-brief-name.md` initially
+- [ ] Summary view shown to user (story list), full spec saved to file
+- [ ] Task Spec includes: summary, scope, approach, stories with acceptance criteria, consequences
+- [ ] On user confirmation, Task Spec moves to `docs/tasks/` (ready status)
 
 ### US-006: Task Registry with PRD-like Lifecycle
 
-**Description:** As a user, I want Task Specs tracked with the same lifecycle as PRDs so that the experience is consistent.
+**Description:** As a user, I want Task Specs tracked with the same registry format as PRDs so that tooling and reporting are consistent.
 
 **Documentation:** No
 
@@ -139,15 +149,16 @@ Task Specs follow the **same lifecycle as PRDs** but in a parallel folder struct
 
 **Acceptance Criteria:**
 
-- [ ] `docs/task-registry.json` tracks all Task Specs
-- [ ] Registry uses same status values as PRD registry: `draft`, `ready`, `in_progress`, `completed`, `abandoned`
-- [ ] Registry includes: id, title, status, scope, createdAt, updatedAt, completedAt
+- [ ] `docs/task-registry.json` uses same schema as `prd-registry.json`
+- [ ] Registry fields: id, title, status, filePath, createdAt, completedAt, stories (count)
+- [ ] Status values match PRD: `draft`, `ready`, `in_progress`, `completed`, `abandoned`, `promoted`
+- [ ] Registry uses file locking during updates (prevent concurrent edit conflicts)
+- [ ] Task Specs appear in Project Status dashboard (alongside PRDs)
 - [ ] Builder can resume `in_progress` Task Specs from previous sessions
-- [ ] Registry structure mirrors `prd-registry.json` format
 
-### US-007: Task Spec Todo Tracking
+### US-007: Task Spec Todo Tracking and Mid-PRD Injection
 
-**Description:** As a user, I want Task Spec todos tracked like PRD stories so that I see progress in the right panel.
+**Description:** As a user, I want Task Spec todos tracked like PRD stories, and I want to inject ad-hoc tasks into an active PRD when I realize additional work is needed mid-session.
 
 **Documentation:** No
 
@@ -155,15 +166,19 @@ Task Specs follow the **same lifecycle as PRDs** but in a parallel folder struct
 
 **Acceptance Criteria:**
 
-- [ ] Task Spec tasks are shown in OpenCode right panel via `todowrite`
-- [ ] Tasks use same status model as PRD stories: pending, in_progress, completed
-- [ ] `builder-state.json` tracks current Task Spec in `activeTask` field
-- [ ] Task progress persists across session interruptions
-- [ ] Completing all tasks triggers completion flow (same as PRD)
+- [ ] Task Spec stories displayed in right panel matching PRD story display style
+- [ ] Completed stories remain visible with checkmark (same as PRD)
+- [ ] `builder-state.json` tracks `activeTask` (mutually exclusive with `activePrd` for standalone tasks)
+- [ ] **Mid-PRD injection:** User can add tasks during active PRD work
+- [ ] Injected tasks use `TSK-001`, `TSK-002` prefix (distinct from `US-###` PRD stories)
+- [ ] User specifies injection position: "run this after US-002" or "add this at the end"
+- [ ] Injected tasks are added to the PRD file in specified position
+- [ ] Injected tasks appear in right panel todo list at correct position
+- [ ] Injected tasks execute in sequence with PRD stories
 
 ### US-008: Task Spec Promotion to PRD
 
-**Description:** As a user, I want to promote a Task Spec to a formal PRD when scope grows beyond ad-hoc so that Planner can take over planning.
+**Description:** As a user, I want to promote a Task Spec to a formal PRD when scope grows, with the option to preserve or restart work.
 
 **Documentation:** No
 
@@ -171,18 +186,19 @@ Task Specs follow the **same lifecycle as PRDs** but in a parallel folder struct
 
 **Acceptance Criteria:**
 
-- [ ] User can request promotion at any time: "promote to PRD" or [P] option
-- [ ] Builder creates handoff document in `docs/tasks/promotions/`
-- [ ] Handoff document includes: original request, analysis, work completed so far, remaining scope
-- [ ] Handoff document is named `promote-task-YYYY-MM-DD-name-to-prd.md`
-- [ ] Builder updates Task Spec status to `promoted` in registry
-- [ ] Builder notifies user: "Promotion request created. Run @planner to continue."
-- [ ] Planner can read promotion documents and create formal PRD from them
-- [ ] Builder does NOT create the PRD itself (strict separation)
+- [ ] Promotion available at any time via [P] option
+- [ ] Builder proactively suggests promotion when scope grows beyond original estimate
+- [ ] Handoff document includes full context: original request, analysis, alternatives considered, consequences, work completed
+- [ ] Handoff saved to `docs/tasks/promotions/promote-task-YYYY-MM-DD-name-to-prd.md`
+- [ ] Builder asks: "Keep completed work or start fresh with PRD?"
+- [ ] If "keep": completed stories noted in handoff, PRD continues from there
+- [ ] If "fresh": handoff notes all work as "to be re-evaluated by Planner"
+- [ ] Task Spec status changes to `promoted` in registry
+- [ ] Builder notifies: "Promotion request created. Run @planner to continue."
 
 ### US-009: PRD Recommendation for Large Requests
 
-**Description:** As a user, I want Builder to recommend creating a formal PRD when my request is large so that complex work is properly planned from the start.
+**Description:** As a user, I want Builder to strongly recommend PRD for large requests with an easy path to accept, while still allowing me to override.
 
 **Documentation:** No
 
@@ -190,16 +206,18 @@ Task Specs follow the **same lifecycle as PRDs** but in a parallel folder struct
 
 **Acceptance Criteria:**
 
-- [ ] Builder estimates request complexity during analysis
-- [ ] For requests estimated as "large" scope (10+ files, multiple breaking changes, significant architecture), Builder recommends formal PRD
-- [ ] Recommendation includes reasoning: "This affects X files, requires Y migration, touches Z components"
-- [ ] User can choose: proceed with Task Spec anyway (override) OR switch to Planner
-- [ ] If user chooses Planner, Builder provides summary for @planner
-- [ ] Recommendation is shown during analysis, not after Task Spec is created
+- [ ] Builder estimates complexity during analysis
+- [ ] For medium/large scope: Builder recommends formal PRD with concise reasoning
+- [ ] Reasoning includes: file count, breaking changes, architecture impact
+- [ ] Builder auto-creates promotion document before showing recommendation (easy accept path)
+- [ ] Recommendation: "This is large scope. Recommend creating PRD. [P] Promote to Planner | [O] Override and continue"
+- [ ] PRD recommendation threshold configurable via `project.json` → `agents.prdRecommendationThreshold`
+- [ ] If user overrides, Builder warns once more at ~50% completion if scope grew significantly
+- [ ] User can always proceed with Task Spec regardless of size
 
 ### US-010: Analysis Output Format
 
-**Description:** As a user, I want a clear, scannable format for the analysis so that I can quickly review and approve.
+**Description:** As a user, I want a clear, progressive format for analysis output that I can scan quickly or expand for detail.
 
 **Documentation:** No
 
@@ -207,15 +225,21 @@ Task Specs follow the **same lifecycle as PRDs** but in a parallel folder struct
 
 **Acceptance Criteria:**
 
-- [ ] Analysis uses consistent visual format matching Builder's existing style
-- [ ] Sections: Understanding, Scope, Questions (if any), Alternatives, Consequences, Task Preview
-- [ ] Final prompt: "[G] Go ahead | [E] Edit/Clarify | [P] Create formal PRD instead | [C] Cancel"
-- [ ] Task Preview shows the tasks that will be in the Task Spec
-- [ ] Format is identical regardless of request size
+- [ ] Analysis uses progressive disclosure: summary first, "[D] Details" to expand sections
+- [ ] Sections: Understanding, Scope, Questions (if any), Alternatives, Consequences, Story Preview
+- [ ] Smart collapse: sections with "none identified" are collapsed by default; sections with content are expanded
+- [ ] Final prompt clearly labeled:
+  ```
+  [G] Go ahead — create Task Spec and start
+  [E] Edit/Clarify — refine understanding
+  [P] Promote to PRD — hand off to Planner (promotion doc ready)
+  [C] Cancel — abort this request
+  ```
+- [ ] Format matches Builder's existing dashboard/prompt visual style
 
 ### US-011: Task Spec Completion and Archival
 
-**Description:** As a user, I want completed Task Specs archived like completed PRDs so that I have a consistent record.
+**Description:** As a user, I want completed Task Specs to show a full completion report and be archived permanently.
 
 **Documentation:** No
 
@@ -223,15 +247,17 @@ Task Specs follow the **same lifecycle as PRDs** but in a parallel folder struct
 
 **Acceptance Criteria:**
 
-- [ ] When all tasks complete, Task Spec moves to `docs/tasks/completed/`
+- [ ] Builder auto-generates completion summary from completed stories and git commits
+- [ ] Completion report matches PRD completion: files changed, tests added, stories completed
+- [ ] Completed Task Spec moves to `docs/tasks/completed/`
 - [ ] Registry status updates to `completed` with `completedAt` timestamp
-- [ ] Task Spec file is updated with completion timestamp and summary
-- [ ] `builder-state.json` → `activeTask` is cleared
-- [ ] User sees completion summary matching PRD completion format
+- [ ] Task Spec file updated with completion section
+- [ ] `builder-state.json` → `activeTask` cleared
+- [ ] Completed Task Specs kept forever (no auto-cleanup)
 
 ### US-012: Task Spec Abandonment
 
-**Description:** As a user, I want to abandon a Task Spec when it's no longer needed so that it's properly tracked.
+**Description:** As a user, I want to abandon a Task Spec with the option to resume later if needed.
 
 **Documentation:** No
 
@@ -239,15 +265,19 @@ Task Specs follow the **same lifecycle as PRDs** but in a parallel folder struct
 
 **Acceptance Criteria:**
 
-- [ ] User can abandon Task Spec: "abandon" or [A] option during execution
+- [ ] User can abandon via "abandon" command or [A] option
+- [ ] Builder prompts for optional reason (can skip)
+- [ ] Builder asks: "Revert uncommitted changes? [Y/N]"
+- [ ] If yes: uncommitted changes reverted; committed work preserved
+- [ ] If no: all changes preserved as-is
 - [ ] Task Spec moves to `docs/tasks/abandoned/`
-- [ ] Registry status updates to `abandoned` with reason
-- [ ] `builder-state.json` → `activeTask` is cleared
-- [ ] Partial work is preserved in the abandoned Task Spec
+- [ ] Registry status updates to `abandoned`
+- [ ] Abandoned Task Specs CAN be resumed: user can "resume task-YYYY-MM-DD-name"
+- [ ] Resume moves Task Spec back to `docs/tasks/` with `in_progress` status
 
 ### US-013: Update adhoc-workflow Skill
 
-**Description:** As a developer, I need the adhoc-workflow skill updated to include the analysis phase and full Task Spec lifecycle.
+**Description:** As a developer, I need the adhoc-workflow skill updated with full analysis phase and Task Spec lifecycle documentation.
 
 **Documentation:** No
 
@@ -255,15 +285,17 @@ Task Specs follow the **same lifecycle as PRDs** but in a parallel folder struct
 
 **Acceptance Criteria:**
 
-- [ ] `skills/adhoc-workflow/SKILL.md` includes new "Phase 0: Analysis & Task Spec" section
-- [ ] Task Spec generation and lifecycle fully documented
-- [ ] Promotion flow documented
-- [ ] Task registry management documented
-- [ ] Example flow updated to show full analysis → Task Spec → execution → completion cycle
+- [ ] Update existing `skills/adhoc-workflow/SKILL.md` in place
+- [ ] Add "Phase 0: Analysis & Task Spec Generation" section
+- [ ] Document full Task Spec lifecycle (draft → ready → in_progress → completed/abandoned/promoted)
+- [ ] Document mid-PRD injection flow with `TSK-###` prefix
+- [ ] Document promotion flow and handoff document format
+- [ ] Include full example flow: analysis → questions → Task Spec → execution → completion
+- [ ] Example shows progress indicators, confidence levels, and all prompt options
 
 ### US-014: Planner Promotion Pickup
 
-**Description:** As a developer, I need Planner to recognize and process Task Spec promotion requests.
+**Description:** As a developer, I need Planner to recognize promotion documents and auto-fill PRD drafts from them.
 
 **Documentation:** No
 
@@ -271,34 +303,37 @@ Task Specs follow the **same lifecycle as PRDs** but in a parallel folder struct
 
 **Acceptance Criteria:**
 
-- [ ] Planner checks for promotion documents in `docs/tasks/promotions/` on startup
-- [ ] Planner shows promotion requests in dashboard: "1 Task Spec promotion pending"
-- [ ] User can select promotion to review and convert to formal PRD
-- [ ] Planner pre-fills PRD draft with information from promotion document
-- [ ] After PRD is created, promotion document is deleted
-- [ ] Planner adds reference in PRD: "Promoted from Task Spec: task-YYYY-MM-DD-name"
+- [ ] Planner checks `docs/tasks/promotions/` on startup
+- [ ] Promotions shown in separate dashboard section: "Promotions from Builder (1)"
+- [ ] User can select promotion to review
+- [ ] Planner auto-generates complete PRD draft from promotion document
+- [ ] PRD draft includes: introduction (from original request), completed work as done stories, remaining scope as new stories
+- [ ] PRD references origin: "Promoted from Task Spec: task-YYYY-MM-DD-name"
+- [ ] After PRD is created and confirmed, promotion document is deleted
+- [ ] Promotions remain in dashboard until processed (no auto-dismiss)
 
 ## Functional Requirements
 
-- FR-1: Builder MUST analyze every ad-hoc request before implementing (no exceptions)
-- FR-2: Builder MUST generate a Task Spec for every ad-hoc request
-- FR-3: Task Specs MUST follow same lifecycle as PRDs (draft → ready → in_progress → completed/abandoned)
-- FR-4: Task Specs MUST use parallel folder structure (`docs/tasks/` hierarchy)
-- FR-5: Task Specs MUST be tracked in `docs/task-registry.json` (NEVER in `docs/prd-registry.json`)
-- FR-6: Builder MUST support Task Spec promotion to PRD via handoff document
-- FR-7: Planner MUST recognize and process promotion documents
-- FR-8: Builder MUST recommend formal PRD for large scope requests
-- FR-9: User MUST be able to override PRD recommendation and proceed with Task Spec
-- FR-10: Task Spec todos MUST be tracked in right panel and `builder-state.json`
-- FR-11: Completed Task Specs MUST move to `docs/tasks/completed/`
-- FR-12: Abandoned Task Specs MUST move to `docs/tasks/abandoned/`
+- FR-1: Builder MUST analyze every ad-hoc request with progress indicator (10s time-box)
+- FR-2: Builder MUST show confidence level in understanding (High/Medium/Low)
+- FR-3: Builder MUST always verify interpretation with user before proceeding
+- FR-4: Builder MUST generate Task Spec for every request (using TSK-### story format)
+- FR-5: Task Specs MUST have acceptance criteria matching PRD story format
+- FR-6: Task Specs MUST follow same lifecycle as PRDs (draft → ready → in_progress → completed/abandoned/promoted)
+- FR-7: Task registry MUST match PRD registry schema
+- FR-8: Task Specs MUST appear in Project Status dashboard
+- FR-9: Builder MUST support mid-PRD task injection with TSK-### prefix
+- FR-10: Builder MUST auto-create promotion document for medium/large scope before recommending PRD
+- FR-11: Builder MUST allow user override of PRD recommendation
+- FR-12: Planner MUST auto-generate PRD draft from promotion documents
+- FR-13: Abandoned Task Specs MUST be resumable
 
 ## Non-Goals
 
 - No Builder involvement in formal PRD creation (Planner only)
 - No Planner involvement in Task Spec creation (Builder only)
-- No automatic promotion (user must explicitly request)
-- No changes to PRD mode workflow (PRD execution unchanged)
+- No automatic promotion without user confirmation
+- No changes to PRD mode workflow (PRD execution unchanged except for TSK injection)
 - No changes to quality checks or ship phase
 
 ## Technical Considerations
@@ -315,16 +350,12 @@ docs/
 │
 ├── tasks/                       # Builder's domain
 │   ├── drafts/                  # Task Spec drafts (during analysis)
-│   │   └── task-2026-03-01-add-spinner.md
 │   ├── completed/               # Completed Task Specs
-│   │   └── task-2026-02-28-fix-footer.md
-│   ├── abandoned/               # Abandoned Task Specs
-│   │   └── task-2026-02-27-refactor-auth.md
-│   ├── promotions/              # Promotion handoff documents
-│   │   └── promote-task-2026-03-01-name-to-prd.md
-│   └── task-2026-03-01-add-spinner.md  # Ready/in-progress Task Specs
+│   ├── abandoned/               # Abandoned Task Specs (resumable)
+│   ├── promotions/              # Handoff docs for Planner
+│   └── task-*.md                # Ready/in-progress Task Specs
 │
-├── task-registry.json           # Builder's registry
+├── task-registry.json           # Builder's registry (matches PRD registry schema)
 └── builder-state.json           # Tracks activeTask OR activePrd
 ```
 
@@ -336,6 +367,7 @@ id: task-2026-03-01-add-spinner
 title: Add Loading Spinner to Submit Button
 status: in_progress
 scope: small
+confidence: high
 createdAt: 2026-03-01T10:30:00Z
 ---
 
@@ -348,92 +380,136 @@ Add a loading spinner to the submit button that shows during form submission.
 ## Analysis
 
 **Scope:** Small (2 files, no breaking changes)
+**Confidence:** High
 
 **Approach:** Use existing Spinner component, disable button during submission.
 
 **Alternatives Considered:**
-- CSS-only animation (simpler but less consistent with design system)
-- Full-page loading overlay (overkill for single button)
+- CSS-only animation — simpler but inconsistent with design system
+- Full-page overlay — overkill for single button
+
+**Recommendation:** Use Spinner component (consistent, accessible, already styled)
 
 **Consequences:**
 - None identified
 
-## Tasks
+## Stories
 
-### T-001: Add loading state to SubmitButton component
+### TSK-001: Add loading state to SubmitButton component
+
+**Description:** As a user, I want the submit button to track loading state so that it can show feedback during submission.
 
 **Acceptance Criteria:**
+
 - [ ] Add `isLoading` prop to SubmitButton
 - [ ] Pass loading state from parent form
 - [ ] Typecheck passes
 
-### T-002: Show Spinner when loading
+### TSK-002: Show Spinner when loading
+
+**Description:** As a user, I want to see a spinner when the form is submitting so that I know the action is in progress.
 
 **Acceptance Criteria:**
+
 - [ ] Import Spinner component
 - [ ] Render Spinner when `isLoading` is true
 - [ ] Hide button text while loading
 - [ ] Verify in browser
 
-### T-003: Disable button during submission
+### TSK-003: Disable button during submission
+
+**Description:** As a user, I want the button disabled during submission so that I can't accidentally submit twice.
 
 **Acceptance Criteria:**
+
 - [ ] Add `disabled={isLoading}` to button
-- [ ] Style disabled state
+- [ ] Style disabled state appropriately
 - [ ] Works in both light and dark mode
 
-### T-004: Add unit tests
+### TSK-004: Add unit tests
+
+**Description:** As a developer, I want unit tests for the loading behavior so that regressions are caught.
 
 **Acceptance Criteria:**
+
 - [ ] Test loading state renders spinner
-- [ ] Test disabled during loading
+- [ ] Test button is disabled during loading
 - [ ] Unit tests pass
 
 ## Completion
 
 **Completed:** [timestamp when done]
-**Summary:** [brief completion notes]
+**Files Changed:** [list]
+**Tests Added:** [count]
+**Summary:** [auto-generated from commits]
 ```
 
-### Task Registry Format
+### Task Registry Format (matches PRD registry)
 
 ```json
 {
-  "schemaVersion": 1,
+  "$schema": "https://opencode.ai/schemas/task-registry.json",
   "tasks": [
     {
       "id": "task-2026-03-01-add-spinner",
       "title": "Add Loading Spinner to Submit Button",
       "status": "in_progress",
-      "scope": "small",
+      "filePath": "docs/tasks/task-2026-03-01-add-spinner.md",
       "createdAt": "2026-03-01T10:30:00Z",
-      "updatedAt": "2026-03-01T10:45:00Z",
       "completedAt": null,
-      "promotedTo": null
+      "stories": 4
     },
     {
       "id": "task-2026-02-28-fix-footer",
       "title": "Fix Footer Alignment",
       "status": "completed",
-      "scope": "small",
+      "filePath": "docs/tasks/completed/task-2026-02-28-fix-footer.md",
       "createdAt": "2026-02-28T14:00:00Z",
-      "updatedAt": "2026-02-28T14:30:00Z",
       "completedAt": "2026-02-28T14:30:00Z",
-      "promotedTo": null
+      "stories": 2
     },
     {
       "id": "task-2026-02-27-refactor-auth",
       "title": "Refactor Auth Flow",
       "status": "promoted",
-      "scope": "large",
+      "filePath": "docs/tasks/task-2026-02-27-refactor-auth.md",
       "createdAt": "2026-02-27T09:00:00Z",
-      "updatedAt": "2026-02-27T10:00:00Z",
       "completedAt": null,
-      "promotedTo": "prd-auth-refactor"
+      "promotedTo": "prd-auth-refactor",
+      "stories": 3
     }
   ]
 }
 ```
+
+### Mid-PRD Injection Example
+
+When user says "add a task to handle error states after US-002":
+
+```markdown
+# PRD: User Settings Feature (excerpt)
+
+### US-001: Add settings page
+...
+
+### US-002: Add theme selector
+...
+
+### TSK-001: Handle error states for theme save [INJECTED]
+
+**Description:** As a user, I want to see error feedback if theme save fails.
+
+**Acceptance Criteria:**
+
+- [ ] Show toast on save failure
+- [ ] Allow retry
+- [ ] Verify in browser
+
+### US-003: Add notification preferences
+...
+```
+
+The `[INJECTED]` label is for documentation; the `TSK-###` prefix is the primary indicator.
 
 ### Promotion Document Format
 
@@ -441,97 +517,135 @@ Add a loading spinner to the submit button that shows during form submission.
 ---
 taskId: task-2026-03-01-big-feature
 promotedAt: 2026-03-01T15:00:00Z
+preserveWork: true
 reason: Scope grew beyond original estimate
 ---
 
-# Promotion Request: Big Feature Implementation
+# Promotion Request: User Preferences Feature
 
 ## Original Request
 
-User asked: "Add user preferences with theme selection"
+"Add user preferences with theme selection"
 
 ## Analysis Summary
 
 **Original Scope Estimate:** Small
 **Actual Scope:** Large (discovered during implementation)
+**Confidence:** High
 
-**Why promotion is needed:**
-- Requires database schema changes
-- Affects 15+ files
-- Needs migration strategy
-- Has downstream impacts on 3 other features
+**Why promotion is recommended:**
+- Requires database schema changes (migration needed)
+- Affects 15+ files across 3 modules
+- Has breaking changes to user settings API
+- Downstream impacts on mobile app and browser extension
+
+## Approach Taken
+
+Use database-backed preferences with real-time sync.
+
+**Alternatives Considered:**
+- Local storage only — rejected due to cross-device requirement
+- Hybrid approach — too complex for initial implementation
 
 ## Work Completed
 
-- [x] T-001: Create preferences database table
-- [x] T-002: Add theme selection UI
+### TSK-001: Create preferences database table ✅
+- Migration created and applied
+- Schema includes theme, notifications, accessibility settings
 
-## Remaining Scope
+### TSK-002: Add theme selection UI ✅
+- ThemeSelector component created
+- Integrated with settings page
+
+## Remaining Scope (for PRD)
 
 - User preference sync across devices
 - Default preference migration for existing users
-- Theme application to all components
-- Dark mode refinements
-- Accessibility considerations
-
-## Recommended PRD Structure
-
-1. Database & API layer (completed work)
-2. Theme system implementation
-3. Migration strategy
-4. Cross-device sync
-5. Accessibility audit
+- Theme application to all 40+ components
+- Dark mode edge cases
+- Accessibility audit for color contrast
+- Mobile app integration
+- Browser extension integration
 
 ## Files Modified So Far
 
-- `src/db/schema/preferences.ts`
-- `src/components/settings/ThemeSelector.tsx`
-- `src/api/preferences.ts`
+- `src/db/schema/preferences.ts` (new)
+- `src/db/migrations/20260301_preferences.sql` (new)
+- `src/components/settings/ThemeSelector.tsx` (new)
+- `src/pages/settings.tsx` (modified)
+- `src/api/preferences.ts` (new)
+
+## Recommended PRD Structure
+
+1. **Database & API Layer** — completed (TSK-001)
+2. **Theme System Core** — completed (TSK-002)  
+3. **Cross-Device Sync** — new US-001
+4. **Migration Strategy** — new US-002
+5. **Component Theming** — new US-003 (large)
+6. **Accessibility Audit** — new US-004
+7. **Mobile Integration** — new US-005
+8. **Extension Integration** — new US-006
 ```
 
 ### Builder State Extension
 
 ```json
 {
+  "activePrd": {
+    "id": "prd-user-settings",
+    "currentStory": "US-002",
+    "injectedTasks": ["TSK-001"]
+  },
+  "activeTask": null,
+  "uiTodos": { ... }
+}
+```
+
+OR for standalone Task Spec:
+
+```json
+{
   "activePrd": null,
   "activeTask": {
     "id": "task-2026-03-01-add-spinner",
-    "currentItem": "T-002",
-    "totalItems": 4,
-    "completedItems": 1
+    "currentStory": "TSK-002",
+    "completedStories": ["TSK-001"]
   },
   "uiTodos": { ... }
 }
 ```
 
-**Rule:** `activePrd` and `activeTask` are mutually exclusive. Only one can be non-null at a time.
+**Rule:** For standalone work, `activePrd` and `activeTask` are mutually exclusive. However, `injectedTasks` can exist within an `activePrd` context.
 
-### Scope Estimation Heuristics
+### Configuration
 
-| Scope | Criteria |
-|-------|----------|
-| Small | 1-3 files, contained change, minimal test updates |
-| Medium | 4-10 files, OR has breaking changes, OR requires migration |
-| Large | 10+ files, OR multiple breaking changes, OR significant architecture impact |
+```json
+{
+  "agents": {
+    "prdRecommendationThreshold": "medium",
+    "analysisTimeoutMs": 10000,
+    "taskSpecEnabled": true
+  }
+}
+```
 
-All scopes get full analysis and Task Spec generation. Large scope triggers PRD recommendation.
+- `prdRecommendationThreshold`: `"small"` | `"medium"` | `"large"` — scope at which PRD is recommended
+- `analysisTimeoutMs`: max time for analysis phase (default 10000)
+- `taskSpecEnabled`: disable for legacy ad-hoc behavior (not recommended)
 
 ## Success Metrics
 
 - Every ad-hoc request has a Task Spec (100% coverage)
 - Users confirm understanding before implementation (reduced rework)
-- Ad-hoc work is tracked and resumable
-- Large requests are flagged for PRD consideration
-- Downstream consequences are surfaced before implementation
+- Analysis completes within 10 seconds with progress visibility
+- Medium/large requests have promotion doc ready for easy Planner handoff
+- Mid-PRD task injection works seamlessly with TSK-### labeling
+- Task Specs appear in Project Status alongside PRDs
 - Clear separation between Builder (tasks) and Planner (PRDs) domains
-- Promotion flow enables smooth handoff to Planner when scope grows
 
 ## Open Questions
 
-None — all original questions resolved:
-1. ✅ All requests handled the same way (no trivial exceptions)
-2. ✅ Promotion to PRD defined via handoff documents
-3. ✅ Task Spec lifecycle mirrors PRD lifecycle exactly
+None — all questions resolved through clarification process.
 
 ## Credential & Service Access Plan
 
