@@ -331,6 +331,48 @@ test('waits for API response before validation', async ({ page }) => {
 });
 ```
 
+### Playwright Config: No webServer
+
+> ⚠️ **IMPORTANT: Do NOT use Playwright's `webServer` config option.**
+>
+> Playwright's default `webServer` behavior kills the dev server when tests complete.
+> This violates the Builder policy: "ALWAYS LEAVE THE DEV SERVER RUNNING."
+
+The dev server is managed externally by Builder (via `check-dev-server.sh` at session startup).
+
+**Correct config pattern:**
+
+```typescript
+import { defineConfig, devices } from '@playwright/test';
+
+// Read port from environment (set by test-flow before running)
+const DEV_PORT = process.env.DEV_PORT || '3000';
+
+export default defineConfig({
+  testDir: './e2e',
+  fullyParallel: true,
+  reporter: 'list',
+  
+  use: {
+    baseURL: `http://localhost:${DEV_PORT}`,
+    trace: 'on-first-retry',
+  },
+
+  // NO webServer config — dev server is managed externally
+  // This prevents Playwright from killing the server after tests
+
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    // Add more projects as needed
+  ],
+});
+```
+
+**Why no webServer:**
+- `webServer` starts a server AND kills it when tests complete
+- External management keeps the server running across test runs
+- `DEV_PORT` comes from `projects.json` via test-flow skill
+
 ### Multi-Browser Testing
 
 Consider browser differences:

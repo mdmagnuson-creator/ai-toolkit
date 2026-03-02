@@ -953,13 +953,82 @@ Setup checklist should include at minimum:
 - seeded account identifiers/roles
 - command to seed/reset test auth fixtures
 
-1. **Verify dev server is running** — Builder starts it at session startup. If somehow stopped, restart it (see Dev Server Management in builder.md)
-2. **Run all queued E2E tests:**
+### E2E Execution Steps
+
+1. **Ensure dev server is running (MANDATORY)**
+   
+   Before running any Playwright tests, verify the dev server is running:
+   
    ```bash
-   npx playwright test [list of test files]
+   # Get devPort for this project
+   DEV_PORT=$(jq -r '.projects[] | select(.path == "'$(pwd)'") | .devPort' ~/.config/opencode/projects.json)
+   
+   # Check if server is responding
+   if ! curl -sf --max-time 2 "http://localhost:${DEV_PORT}" > /dev/null 2>&1; then
+     # Start it using the shared script
+     ~/.config/opencode/scripts/check-dev-server.sh --project-path "$(pwd)"
+   fi
    ```
-3. **Handle failures** with the fix loop above
-4. **Update state** — Mark as passed or track failure count
+   
+   **Failure behavior:** If `check-dev-server.sh` returns `startup failed` or `timed out`, stop and report the error. Do not run Playwright tests against a dead server.
+
+2. **Set DEV_PORT environment variable:**
+   ```bash
+   export DEV_PORT=$(jq -r '.projects[] | select(.path == "'$(pwd)'") | .devPort' ~/.config/opencode/projects.json)
+   ```
+
+3. **Run all queued E2E tests:**
+   ```bash
+   npx playwright test --reporter=list [list of test files]
+   ```
+
+4. **Handle failures** with the fix loop above
+
+5. **Update state** — Mark as passed or track failure count
+
+### Playwright Config: No webServer
+
+> ⚠️ **IMPORTANT: Do NOT use Playwright's `webServer` config option.**
+>
+> Playwright's default `webServer` behavior kills the dev server when tests complete.
+> This violates the Builder policy: "ALWAYS LEAVE THE DEV SERVER RUNNING."
+>
+> The dev server is managed externally by `check-dev-server.sh` or Builder's session startup.
+
+**Correct playwright.config.ts pattern:**
+
+```typescript
+import { defineConfig, devices } from '@playwright/test';
+
+// Read port from environment (set by test-flow before running)
+const DEV_PORT = process.env.DEV_PORT || '3000';
+
+export default defineConfig({
+  testDir: './e2e',
+  fullyParallel: true,
+  reporter: 'list',
+  
+  use: {
+    baseURL: `http://localhost:${DEV_PORT}`,
+    trace: 'on-first-retry',
+  },
+
+  // NO webServer config — dev server is managed externally
+  // This prevents Playwright from killing the server after tests
+
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
+    { name: 'webkit', use: { ...devices['Desktop Safari'] } },
+    { name: 'mobile', use: { ...devices['iPhone 13'] } },
+  ],
+});
+```
+
+**Why no webServer:**
+- `webServer` starts a server AND kills it when tests complete (default behavior)
+- `reuseExistingServer: true` only helps if server is already running
+- External management via `check-dev-server.sh` is more reliable and keeps the server running across test runs
 
 ### Playwright Matrix Guidance
 

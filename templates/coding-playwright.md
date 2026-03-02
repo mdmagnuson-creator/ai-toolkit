@@ -188,3 +188,46 @@ await stable.verify();
 - Page load and navigation
 - Data loading and filtering
 - Any animation or transition
+
+## Playwright Config
+
+> ⚠️ **Do NOT use Playwright's `webServer` config option.**
+>
+> Playwright's default `webServer` behavior kills the dev server when tests complete.
+> The dev server is managed externally by Builder/test-flow.
+
+**Correct config pattern:**
+
+```typescript
+import { defineConfig, devices } from '@playwright/test';
+
+// Read port from environment (set by test-flow before running)
+const DEV_PORT = process.env.DEV_PORT || '3000';
+
+export default defineConfig({
+  testDir: './e2e',
+  fullyParallel: true,
+  reporter: 'list',  // Use list reporter to avoid hanging
+  
+  use: {
+    baseURL: `http://localhost:${DEV_PORT}`,
+    trace: 'on-first-retry',
+  },
+
+  // NO webServer config — dev server is managed externally
+  // This prevents Playwright from killing the server after tests
+
+  projects: [
+    { name: 'chromium', use: { ...devices['Desktop Chrome'] } },
+    { name: 'firefox', use: { ...devices['Desktop Firefox'] } },
+    { name: 'webkit', use: { ...devices['Desktop Safari'] } },
+    { name: 'mobile', use: { ...devices['iPhone 13'] } },
+  ],
+});
+```
+
+**Key points:**
+- Use `DEV_PORT` from environment, not hardcoded values
+- Use `reporter: 'list'` to prevent process hanging
+- No `webServer` config — external management keeps server running
+- Include multi-browser projects for comprehensive testing
