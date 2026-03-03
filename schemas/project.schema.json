@@ -1466,20 +1466,6 @@
           "default": "balanced",
           "description": "When to run critic during PRD work: strict (after every story), balanced (every 2-3 stories), fast (once at end)"
         },
-        "gitWorkflow": {
-          "type": "string",
-          "enum": ["trunk", "feature-branch", "pr-required"],
-          "default": "pr-required",
-          "description": "How agents should handle git"
-        },
-        "trunkMode": {
-          "type": "string",
-          "enum": ["branchless", "pr-based"],
-          "default": "branchless",
-          "description": "Only applies when gitWorkflow is 'trunk'. branchless = commit directly on default branch, pr-based = keep trunk semantics but allow PR flow."
-        },
-        "autoCommit": { "type": "boolean", "default": true },
-        "autoPush": { "type": "boolean", "default": true },
         "browserVerification": {
           "type": "boolean",
           "default": true,
