@@ -1,7 +1,7 @@
 {
   "$schema": "https://opencode.ai/schemas/toolkit-structure.json",
   "version": "1.0.0",
-  "generatedAt": "2026-03-04T00:00:00Z",
+  "generatedAt": "2026-03-03T23:33:50Z",
   "repository": "https://github.com/mdmagnuson-creator/yo-go",
   "agents": {
     "total": 64,
@@ -978,9 +978,69 @@
         "changes": [
           {
             "type": "feat",
+            "scope": "schema",
+            "description": "remove deprecated agents.gitWorkflow, trunkMode, autoCommit, autoPush from project.schema.json (US-001)",
+            "hash": "9907098"
+          },
+          {
+            "type": "feat",
+            "scope": "schema",
+            "description": "add git.agentWorkflow for branch targeting configuration (US-002)",
+            "hash": "74b71d4"
+          },
+          {
+            "type": "feat",
+            "scope": "guardrails",
+            "description": "add Git Workflow Enforcement section to AGENTS.md (US-007)",
+            "hash": "3e56396"
+          },
+          {
+            "type": "feat",
+            "scope": "toolkit",
+            "description": "add Option C central registry instructions for schema migrations (US-008)",
+            "hash": "6b0c065"
+          },
+          {
+            "type": "feat",
+            "scope": "builder",
+            "description": "add project context loading and git workflow validation (US-003)",
+            "hash": "fdf0178"
+          },
+          {
+            "type": "feat",
+            "scope": "planner",
+            "description": "add project context loading and git workflow enforcement (US-004)",
+            "hash": "af7b452"
+          },
+          {
+            "type": "feat",
+            "scope": "developer",
+            "description": "add git workflow extraction and enforcement (US-005)",
+            "hash": "50d99fd"
+          },
+          {
+            "type": "feat",
+            "scope": "toolkit",
+            "description": "enforce relatedProjects lookup - no name-based guessing (US-006)",
+            "hash": "d0382c9"
+          },
+          {
+            "type": "feat",
+            "scope": "updates",
+            "description": "add interactive git config migration to central registry (US-009)",
+            "hash": "5693d72"
+          },
+          {
+            "type": "docs",
+            "scope": "prd",
+            "description": "add PRD for project context awareness and git workflow enforcement",
+            "hash": "b55c976"
+          },
+          {
+            "type": "feat",
             "scope": "agents",
             "description": "add examples to 41 agents for improved few-shot prompting (20 critics, 2 testers, 7 operational, 3 E2E/review, 9 implementation)",
-            "hash": "pending"
+            "hash": "d7fe17a"
           },
           {
             "type": "docs",
