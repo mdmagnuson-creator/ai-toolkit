@@ -499,6 +499,89 @@ For backward compatibility, you can also create updates in the toolkit repo (but
 
 **Note:** Legacy updates are gitignored and only work on the machine where they were created. Prefer Option A for cross-machine sync.
 
+#### Option C: Central Registry (Best for Schema Migrations)
+
+Use this when a change affects multiple projects based on their configuration (e.g., schema migrations, deprecations).
+
+1. **Create update template:**
+   ```
+   data/update-templates/YYYY-MM-DD-{name}.md
+   ```
+   
+   Example template (`data/update-templates/2026-03-04-migrate-git-config.md`):
+   ```markdown
+   ---
+   title: Migrate Git Configuration
+   updateType: schema
+   interactive: true
+   ---
+   
+   # Migrate Git Configuration
+   
+   ## What to do
+   
+   1. Remove deprecated fields from `agents` object:
+      - `agents.gitWorkflow`
+      - `agents.trunkMode`
+      - `agents.autoCommit`
+      - `agents.autoPush`
+   
+   2. If `git.agentWorkflow` is not configured, ask the user:
+      - What branch do you work on?
+      - Where should changes be pushed?
+      - Where should PRs be created to?
+      - Which branches require human approval?
+   
+   3. Generate `git.agentWorkflow` based on answers
+   
+   ## Verification
+   
+   Run: `jq '.git.agentWorkflow' docs/project.json`
+   ```
+
+2. **Add to registry:**
+   Edit `data/update-registry.json`:
+   ```json
+   {
+     "id": "2026-03-04-migrate-git-config",
+     "description": "Migrate git config from agents.* to git.agentWorkflow",
+     "affinityRule": "all-projects",
+     "priority": "normal",
+     "updateType": "schema",
+     "createdAt": "2026-03-04",
+     "templatePath": "data/update-templates/2026-03-04-migrate-git-config.md"
+   }
+   ```
+
+3. **Commit and push toolkit repo**
+
+4. **Builder/Planner discover automatically** on next run:
+   - Reads `data/update-registry.json`
+   - Matches `affinityRule` against current project
+   - Checks `docs/applied-updates.json` to skip already-applied
+   - Shows pending update to user
+   - Records in `docs/applied-updates.json` when applied
+
+**Affinity Rules:**
+
+See `data/update-affinity-rules.json` for available rules:
+
+| Rule | Matches |
+|------|---------|
+| `all-projects` | All projects with `hasAgentSystem: true` |
+| `has-capability:{name}` | Projects with `capabilities.{name}: true` |
+| `has-integration:{name}` | Projects with `{name}` in `integrations` array |
+| `stack:{name}` | Projects with `{name}` in `stacks` object |
+
+**When to use which option:**
+
+| Scenario | Use |
+|----------|-----|
+| Schema change affecting multiple projects | **Option C** (Central Registry) |
+| One-off update for a single project | **Option A** (Direct to Project) |
+| Website sync update | **Option A** (Direct to Project) |
+| Legacy/backward compatibility | **Option B** (Legacy Location) |
+
 #### Update File Format
 
 | Field | Required | Description |
