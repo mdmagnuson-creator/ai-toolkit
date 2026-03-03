@@ -746,7 +746,12 @@ Insert TSK-001 at correct position in right panel todos.
 
 When all stories complete:
 
-### Step 1: Generate Completion Summary
+### Step 1: Generate Completion Summary (MANDATORY)
+
+> ⛔ **This completion report MUST be shown before offering to commit.**
+>
+> The user cannot proceed to commit without seeing this report.
+> Do not skip any section — all fields are required.
 
 ```
 ═══════════════════════════════════════════════════════════════════════
@@ -755,31 +760,60 @@ When all stories complete:
 
 ✅ All stories complete!
 
-Task: Add Loading Spinner to Submit Button
-Stories: 4/4 complete
-Time: 15 minutes
+📋 ORIGINAL REQUEST
+───────────────────────────────────────────────────────────────────────
+"Add loading spinner to submit button"
 
-Quality Summary:
-  ✅ All typechecks passed
-  ✅ All lint checks passed
-  ✅ All unit tests passed
-  ✅ UI Verification: 3 stories verified, 1 not required
+📊 UNDERSTANDING (How I Interpreted It)
+───────────────────────────────────────────────────────────────────────
+Add visual loading feedback to SubmitButton component:
+- Show spinner icon during form submission
+- Disable button while loading to prevent double-submit
+- Use existing Spinner component from design system
 
-Files changed:
+📝 STORIES COMPLETED
+───────────────────────────────────────────────────────────────────────
+  ✅ TSK-001: Add loading state to SubmitButton
+  ✅ TSK-002: Show Spinner when loading
+  ✅ TSK-003: Disable button during submission
+  ✅ TSK-004: Add unit tests
+
+📁 FILES MODIFIED
+───────────────────────────────────────────────────────────────────────
   • src/components/SubmitButton.tsx
   • src/components/SubmitButton.test.tsx
 
-Tests generated:
-  • 3 unit tests
-  • 1 verification test (tests/ui-verify/submit-button.spec.ts)
+🧪 TESTS RUN
+───────────────────────────────────────────────────────────────────────
+  Unit tests: 3 tests passed
+  Verification tests: 1 test passed
 
-Screenshots:
-  • ai-tmp/verification/screenshots/submit-button-loading.png
+✅ VERIFICATION STATUS (per story)
+───────────────────────────────────────────────────────────────────────
+  TSK-001: ✅ verified (screenshot: submit-button-loading-state.png)
+  TSK-002: ✅ verified (screenshot: submit-button-spinner.png)
+  TSK-003: ✅ verified (screenshot: submit-button-disabled.png)
+  TSK-004: ➖ not required (test file only)
 
-Commits:
+📸 SCREENSHOTS CAPTURED
+───────────────────────────────────────────────────────────────────────
+  • .tmp/verification/screenshots/submit-button-loading-state.png
+  • .tmp/verification/screenshots/submit-button-spinner.png
+  • .tmp/verification/screenshots/submit-button-disabled.png
+
+📦 COMMITS MADE
+───────────────────────────────────────────────────────────────────────
   • abc1234: feat: Add loading state to SubmitButton
   • def5678: feat: Add spinner and disable during loading
   • ghi9012: test: Add unit tests for loading behavior
+
+⏱️ TIME TAKEN
+───────────────────────────────────────────────────────────────────────
+  Started: 10:30 AM
+  Completed: 10:45 AM
+  Duration: ~15 minutes
+
+═══════════════════════════════════════════════════════════════════════
 
 [C] Commit and ship
 [E] Write additional E2E tests
@@ -787,6 +821,20 @@ Commits:
 > _
 ═══════════════════════════════════════════════════════════════════════
 ```
+
+### Completion Report Field Reference
+
+| Field | Required | Source |
+|-------|----------|--------|
+| Original Request | ✅ Yes | User's initial message that triggered ad-hoc mode |
+| Understanding | ✅ Yes | From ANALYSIS COMPLETE dashboard |
+| Stories Completed | ✅ Yes | From Task Spec file |
+| Files Modified | ✅ Yes | Aggregated from all story implementations |
+| Tests Run | ✅ Yes | Count of unit tests + verification tests |
+| Verification Status | ✅ Yes | Per-story: verified / skipped / not-required |
+| Screenshots Captured | ✅ Yes | Paths to any screenshots taken (empty if none) |
+| Commits Made | ✅ Yes | Git log for this task (hash + message) |
+| Time Taken | ✅ Yes | From activeTask.startedAt to now |
 
 ### Step 2: Archive Task Spec
 
