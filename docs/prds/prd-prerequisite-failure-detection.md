@@ -703,11 +703,20 @@ To catch transient/flaky issues, verification requires 3 consecutive passes befo
     "verification": {
       "mode": "strict",
       "requiredPasses": 3,
-      "autoFixLoop": true
+      "autoFixLoop": true,
+      "fixAttemptTimeoutMinutes": 5,
+      "runBroaderTestsAfterFix": true
     }
   }
 }
 ```
+
+| Setting | Type | Default | Description |
+|---------|------|---------|-------------|
+| `requiredPasses` | number | 3 | Consecutive passes required for stability |
+| `autoFixLoop` | boolean | true | Enable automated fix loop (true when missing) |
+| `fixAttemptTimeoutMinutes` | number | 5 | Timeout per fix attempt in minutes (5 when missing) |
+| `runBroaderTestsAfterFix` | boolean | true | Run broader test suite after each fix to catch regressions |
 
 **Flow:**
 
@@ -900,30 +909,7 @@ Entering fix loop to investigate...
 
 ## Open Questions
 
-1. **How should Builder route fixes?**
-   - Currently spec says "delegate to @developer or @e2e-playwright"
-   - Heuristic needed: code/logic issues → @developer, selector/test issues → @e2e-playwright
-   - Could parse error type: "element not found" → likely selector; "TypeError" → likely code
-
-2. **Should we support auto-fix disable per project?**
-   - Some teams may prefer manual control
-   - Add `agents.verification.autoFixLoop: boolean` to project.json?
-   - Default: true (auto-fix enabled)
-
-3. **What if the fix breaks something else?**
-   - @developer might fix auth but break another test
-   - Should we run a broader test suite after each fix?
-   - Or just trust the targeted test and catch regressions later?
-
-4. **How to handle long-running fix attempts?**
-   - What if @developer takes 5 minutes to analyze + fix?
-   - Should we have a per-attempt timeout?
-   - Or trust the delegated agent to complete or fail?
-
-5. **Environment skill naming convention?**
-   - How should Builder search for matching skills?
-   - Naming pattern: `{category}-testing` (e.g., `electron-testing`, `docker-testing`)?
-   - Or skill metadata tags for discovery?
+*All questions resolved — see Resolved Questions table below.*
 
 ---
 
@@ -939,6 +925,11 @@ Entering fix loop to investigate...
 | Reset counter after fix | Yes — require fresh 3 passes after any code/environment change |
 | Will Builder see new skills | Yes — skills loaded dynamically via skill tool; Builder checks on retry |
 | Who creates environment skills | @toolkit only — Builder queues request, user verifies, @toolkit creates |
+| How should Builder route fixes | Same as any other fix — Builder uses its normal delegation logic; only ask user if no way to delegate or determine next step |
+| Auto-fix disable per project | Yes — `agents.verification.autoFixLoop: boolean` (default: true when missing or not set) |
+| What if fix breaks something else | Run broader test suite after each fix to catch regressions |
+| Long-running fix attempts | Per-attempt timeout via `agents.verification.fixAttemptTimeoutMinutes` (default: 5 minutes when missing or not set) |
+| Environment skill naming convention | Naming pattern `{category}-testing` (e.g., `electron-testing`, `docker-testing`) |
 
 ---
 
@@ -951,3 +942,5 @@ Entering fix loop to investigate...
 | 2026-03-03 | @toolkit | Added environment prerequisites with skill-based fixes and skill creation request flow |
 | 2026-03-03 | @toolkit | Added 3-pass stability verification requirement with reset after fix |
 | 2026-03-03 | @toolkit | Added Stories 6-8 for environment skills and stability checks; expanded to 8 implementation phases |
+| 2026-03-03 | @toolkit | Moved to READY status |
+| 2026-03-03 | @toolkit | Resolved all open questions: fix routing (use normal delegation), autoFixLoop config (default true), broader tests after fix, fixAttemptTimeoutMinutes (default 5), skill naming ({category}-testing) |
