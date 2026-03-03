@@ -558,6 +558,148 @@ If user confirms:
 2. Add changed UI files to `test-debt.json` with `"skipReason": "verification skipped"`
 3. Allow task completion with warning banner
 
+### Flaky Test Detection
+
+When running verification tests or E2E tests, detect and handle flaky tests:
+
+#### Detection Criteria
+
+A test is **flaky** when it:
+- Passes on some runs but fails on others (intermittent)
+- Fails with timing-related errors (timeouts, race conditions)
+- Fails with non-deterministic assertion failures
+
+**Detection method:** Run the test multiple times when a failure occurs:
+
+```
+Test fails on first run
+    │
+    ▼
+Re-run the SAME test 2 more times
+    │
+    ├─── All 3 fail consistently ──► NOT flaky (genuine failure)
+    │
+    └─── Mixed results (e.g., 1/3 or 2/3 pass) ──► FLAKY
+```
+
+#### Flakiness Response
+
+When a flaky test is detected:
+
+```
+⚠️ FLAKY TEST DETECTED
+
+Test: payment-form.spec.ts → "renders and accepts valid input"
+Results: 1/3 passes (66% failure rate)
+
+Failure pattern:
+- Run 1: FAIL — Timeout waiting for selector '[data-testid="submit-btn"]'
+- Run 2: PASS
+- Run 3: FAIL — Timeout waiting for selector '[data-testid="submit-btn"]'
+
+Analysis: Likely timing issue — element takes variable time to render
+
+Action: Escalating to @e2e-playwright for fix...
+```
+
+#### Escalation Logic
+
+Analyze the failure pattern to determine the right fix agent:
+
+| Failure Pattern | Analysis | Delegate To |
+|-----------------|----------|-------------|
+| Timeout waiting for selector | Timing/animation issue | @e2e-playwright |
+| Element not visible | Race condition, render timing | @e2e-playwright |
+| Text content mismatch | Dynamic content, async data | @developer |
+| Network request timing | API response variability | @developer |
+| State not ready | Component lifecycle issue | @developer |
+
+**Escalation prompt format:**
+
+```
+@e2e-playwright (or @developer):
+
+Fix flaky test: tests/ui-verify/payment-form.spec.ts
+
+Failure pattern:
+- Test passes 1/3 times
+- Timeout on '[data-testid="submit-btn"]' in 2/3 runs
+
+Root cause hypothesis:
+- Button renders after async operation completes
+- Current wait is insufficient
+
+Required fix:
+- Add explicit wait for async operation
+- Or use auto-retrying assertion with appropriate timeout
+
+After fix, test MUST pass 3/3 runs consistently.
+```
+
+#### Verification After Fix
+
+After the delegate agent fixes the flaky test:
+
+1. **Re-run the test 3 times consecutively**
+2. **All 3 must pass** to consider the fix successful
+3. **If still flaky**, escalate to user:
+
+```
+❌ FLAKY TEST NOT RESOLVED
+
+Test still fails intermittently after fix attempt:
+- Run 1: PASS
+- Run 2: FAIL
+- Run 3: PASS
+
+Options:
+  [F] Try another fix approach
+  [M] Fix manually, then type "retry"
+  [S] Skip test (adds to test-debt.json with flaky=true)
+  [Q] Quarantine test (moves to tests/quarantine/)
+```
+
+#### Quarantine Option
+
+For persistently flaky tests that can't be immediately fixed:
+
+1. Move test file to `tests/quarantine/`
+2. Add entry to `test-debt.json`:
+   ```json
+   {
+     "quarantined": [
+       {
+         "file": "payment-form.spec.ts",
+         "reason": "Intermittent timeout on submit button",
+         "quarantinedAt": "2026-03-03T10:30:00Z",
+         "failureRate": "66%",
+         "reviewBy": "2026-03-10"
+       }
+     ]
+   }
+   ```
+3. Quarantined tests are excluded from CI but tracked for follow-up
+4. Review deadline is 7 days from quarantine
+
+#### Flaky Test Metrics
+
+Track flakiness in `builder-state.json`:
+
+```json
+{
+  "testMetrics": {
+    "flakyTestsDetected": 3,
+    "flakyTestsFixed": 2,
+    "flakyTestsQuarantined": 1,
+    "lastFlakyTest": {
+      "file": "payment-form.spec.ts",
+      "detectedAt": "2026-03-03T10:30:00Z",
+      "resolution": "fixed"
+    }
+  }
+}
+```
+
 ---
 
 ## Per-Task Quality Checks (MANDATORY)

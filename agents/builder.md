@@ -784,6 +784,69 @@ Options:
 
 See `test-flow` skill → "UI Verification" for full verification flow.
 
+### Flaky Test Handling
+
+> 🔄 **When tests pass intermittently, they are FLAKY and must be fixed.**
+>
+> **Trigger:** test-flow detects a test that passes some runs but fails others.
+>
+> **Failure behavior:** Do NOT retry flaky tests indefinitely. Analyze the failure pattern, delegate to the appropriate agent for fix, then verify stability.
+
+**Flaky test detection flow:**
+
+```
+Test fails
+    │
+    ▼
+Re-run same test 2 more times
+    │
+    ├─── 0/3 pass ──► Genuine failure (normal fix loop)
+    │
+    └─── 1/3 or 2/3 pass ──► FLAKY — escalate for fix
+```
+
+**Flaky test escalation:**
+
+1. **Analyze failure pattern:**
+   - Timing/selector issues → delegate to @e2e-playwright
+   - Component state/data issues → delegate to @developer
+   
+2. **Delegate with flaky context:**
+   ```
+   Fix flaky test: tests/ui-verify/[name].spec.ts
+   
+   Failure pattern: 1/3 passes (timing issue suspected)
+   Error: Timeout waiting for '[data-testid="submit-btn"]'
+   
+   Root cause hypothesis: Button renders after async operation
+   Required: Test must pass 3/3 consecutive runs
+   ```
+
+3. **Verify fix stability:**
+   - Re-run test 3 times after fix
+   - All 3 must pass to consider resolved
+   - If still flaky → offer quarantine option
+
+**Quarantine option for persistent flakiness:**
+
+```
+❌ TEST STILL FLAKY
+
+After fix attempt, test still fails intermittently.
+
+Options:
+  [T] Try different fix approach
+  [Q] Quarantine test (moves to tests/quarantine/, tracked in test-debt.json)
+  [M] Manual investigation
+```
+
+Quarantined tests:
+- Moved to `tests/quarantine/` directory
+- Excluded from CI but tracked for 7-day review
+- Logged to `test-debt.json` with `quarantined: true`
+
+See `test-flow` skill → "Flaky Test Detection" for full detection and escalation flow.
+
 ---
 
 ## Deferred E2E Test Flow
