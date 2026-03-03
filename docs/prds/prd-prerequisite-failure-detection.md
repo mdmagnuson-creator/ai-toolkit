@@ -933,6 +933,152 @@ Entering fix loop to investigate...
 
 ---
 
+## Edge Case Handling
+
+These additional edge cases have been analyzed and resolved:
+
+### 1. Cascading Prerequisites (Deep Dependency Chains)
+
+**Scenario:** A test fails at login, which depends on database connection, which depends on container startup.
+
+**Resolution:** The iteration limit should scale with prerequisite depth, not be a fixed 10. For each prerequisite level discovered, add 3 to the maximum iterations.
+
+```
+Base limit: 10 iterations
++ 3 per prerequisite depth level discovered
+
+Example: 
+- Feature (depth 0) → base 10
+- Login depends on feature (depth 1) → +3 = 13
+- Database depends on login (depth 2) → +3 = 16
+```
+
+**Maximum cap:** 25 iterations (prevent runaway regardless of depth)
+
+### 2. Circular Dependencies
+
+**Scenario:** Fix for component A requires component B to pass, but B's fix requires A to pass.
+
+**Resolution:**
+1. Track "error seen before in this loop" — not just consecutive same-error detection
+2. If the same error signature appears a second time (anywhere in the loop, not just back-to-back), the loop is circular
+3. Stop auto-fix and redelegate to Builder as a "different issue pattern" — this needs human-level architectural thinking
+
+**Error signature:** Hash of (test file + error message + failure location)
+
+### 3. Fix Timeout Handling
+
+**Scenario:** A fix attempt times out at 5 minutes — the delegated agent didn't complete.
+
+**Resolution:**
+1. Treat timeout as a failed attempt (increment attempt counter)
+2. For partial fixes (agent made some changes before timeout):
+   - Run the test anyway to see if partial fix helped
+   - If test passes, count as success
+   - If test fails, log the partial changes in attempt history
+3. Add `fixAttemptTimeoutBehavior` config option: `"retry"` | `"fail"` | `"test-partial"` (default: `"test-partial"`)
+
+### 4. Broader Test Failures After Fix
+
+**Scenario:** Fix for login breaks the logout flow (discovered by broader test suite).
+
+**Resolution:**
+1. If the broken test is **not blocking** the original feature (different prerequisite chain):
+   - Log to `verification-failures.json` as a regression
+   - Add to project status as "incomplete test requiring attention"
+   - Continue with original verification
+2. If the broken test **is blocking** the original feature (same prerequisite chain):
+   - Enter fix loop for the newly broken test
+   - Track as a regression in attempt history
+
+### 5. Skill Recovery Fails
+
+**Scenario:** An environment skill exists but fails to recover the environment.
+
+**Resolution:** Same process as "no skill exists":
+1. Stop auto-fix
+2. Offer option [T] to queue skill update request for @toolkit
+3. Request includes: existing skill name, what it tried, why it failed, suggested improvements
+4. After skill is updated, retry
+
+### 6. User Abandons Mid-Loop
+
+**Scenario:** User closes session while fix loop is in progress.
+
+**Resolution:**
+1. All loop state is already persisted to `builder-state.json` after each step
+2. On next Builder session startup:
+   - Check for `verificationLoop.status === "in_progress"`
+   - Show in project status: "⚠️ Verification loop interrupted — [X] iterations, last working on [component]"
+3. Offer options:
+   - [R] Resume from where it left off
+   - [C] Clear and start fresh
+   - [S] Skip verification
+
+### 7. Test File Invalid (Syntax Error, Missing Import)
+
+**Scenario:** The verification test itself has a syntax error or broken import.
+
+**Resolution:**
+1. Classify as distinct category: **"TEST_INVALID"** (not prerequisite, not feature)
+2. Delegate to @e2e-playwright specifically (not @developer)
+3. @e2e-playwright is the test specialist — it should fix test file issues
+4. Same 3-attempt limit applies
+
+**Detection heuristics:**
+- "SyntaxError" in error message
+- "Cannot find module" / "Module not found"
+- "is not defined" for test-specific variables
+- Test file stack trace points to test file itself (not application code)
+
+### 8. External API Down
+
+**Scenario:** Test fails because a third-party API (Stripe, SendGrid, etc.) is down or rate-limiting.
+
+**Resolution:**
+1. Detect external service failures via patterns:
+   - HTTP 503 from known external domains
+   - "service unavailable" + external hostname
+   - HTTP 429 rate limit from external service
+2. **Do not attempt automated fix** — no code change or skill can fix this
+3. Immediately offer manual options:
+   ```
+   ⚠️ EXTERNAL SERVICE UNAVAILABLE
+   
+   The test failed due to an external service issue:
+     Service: api.stripe.com
+     Error: 503 Service Unavailable
+   
+   This cannot be automatically fixed. Options:
+     [W] Wait and retry in 5 minutes
+     [M] Use mock/stub for this service
+     [S] Skip verification
+   ```
+
+### 9. Multiple Prerequisites Fail Simultaneously
+
+**Scenario:** First test run fails at login AND shows database connection error in the same run.
+
+**Resolution:**
+1. Fix prerequisites in dependency order (bottom-up)
+2. Database is likely a prerequisite for login, so fix database first
+3. If no clear dependency order, fix in order of appearance in test output
+4. Track all detected prerequisites and mark as "pending" until each is addressed
+
+### 10. Non-Localhost Testing (Out of Scope)
+
+**Scenario:** Project has `devPort: null` and tests should run against staging/Vercel preview.
+
+**Resolution:** This is **out of scope for this PRD**. Non-localhost testing will be addressed in a separate PRD covering:
+- Test environment selection (`testEnvironment` config)
+- Vercel preview URL detection
+- Supabase preview branch handling
+- Dynamic URL resolution
+
+This PRD assumes a running local dev server (the existing prerequisite check for `devPort: null` applies — those projects skip E2E entirely until the non-localhost PRD is implemented).
+
+---
+
 ## Changelog
 
 | Date | Author | Change |
@@ -944,3 +1090,4 @@ Entering fix loop to investigate...
 | 2026-03-03 | @toolkit | Added Stories 6-8 for environment skills and stability checks; expanded to 8 implementation phases |
 | 2026-03-03 | @toolkit | Moved to READY status |
 | 2026-03-03 | @toolkit | Resolved all open questions: fix routing (use normal delegation), autoFixLoop config (default true), broader tests after fix, fixAttemptTimeoutMinutes (default 5), skill naming ({category}-testing) |
+| 2026-03-03 | @toolkit | Added Edge Case Handling section: 10 edge cases with resolutions (cascading prerequisites, circular deps, timeout handling, broader test failures, skill recovery, session abandonment, invalid tests, external APIs, multiple prerequisites, non-localhost scope) |
