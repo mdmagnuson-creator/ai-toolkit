@@ -620,6 +620,29 @@
               "description": "How to handle conflicts: stop-and-alert (safest), auto-merge (attempt git merge), stash-and-alert (stash local, pull, alert)"
             }
           }
+        },
+        "agentWorkflow": {
+          "type": "object",
+          "description": "How agents interact with git branches. Branches in requiresHumanApproval are BLOCKED for all agent operations (push, PR, merge). Default cascade: pushTo → workBranch → defaultBranch.",
+          "properties": {
+            "workBranch": {
+              "type": "string",
+              "description": "Branch agents should work on (e.g., 'staging', 'develop'). Defaults to defaultBranch if not set."
+            },
+            "pushTo": {
+              "type": "string",
+              "description": "Branch to push changes to. Defaults to workBranch if not set, which defaults to defaultBranch."
+            },
+            "createPrTo": {
+              "type": "string",
+              "description": "Branch to create PRs against. Defaults to defaultBranch if not set."
+            },
+            "requiresHumanApproval": {
+              "type": "array",
+              "items": { "type": "string" },
+              "description": "Branches that are BLOCKED for all agent operations. Agents cannot push to, create PRs targeting, or auto-merge to these branches. Use for production branches that require human review."
+            }
+          }
         }
       }
     },
