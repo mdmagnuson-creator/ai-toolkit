@@ -347,6 +347,76 @@ This section ensures you NEVER accidentally:
 
 ---
 
+## Out-of-Scope Request Detection During PRD Mode
+
+> ⛔ **When in active PRD mode, check EVERY user message against the PRD scope.**
+>
+> **Trigger:** User sends a message while `activePrd` is set in builder-state.json.
+>
+> **Check:** Does the user's request match any story in the active PRD?
+>
+> **Failure behavior:** If the request doesn't match any existing story, do NOT start implementing. Show the OUT OF SCOPE prompt first.
+
+### Detection Method
+
+When you have an active PRD and receive a user message:
+
+1. **Parse the user's request** — What are they asking for?
+2. **Compare against PRD stories** — Read story titles and descriptions from the active PRD
+3. **Determine scope match:**
+   - **Matches a story** → Continue PRD work normally
+   - **Does NOT match any story** → Trigger out-of-scope flow
+
+### Out-of-Scope Flow
+
+When user request doesn't match any story in the active PRD:
+
+```
+═══════════════════════════════════════════════════════════════════════
+                    ⚠️ OUT OF SCOPE REQUEST
+═══════════════════════════════════════════════════════════════════════
+
+Current PRD: [prd-name]
+Current story: [US-XXX: story title]
+
+Your request: "[user's request]"
+
+This doesn't match any story in the active PRD.
+
+Options:
+  [A] Analyze as ad-hoc task — run full analysis, implement separately
+  [I] Inject into PRD — add as new TSK-### story after current story
+  [S] Skip — continue with current PRD work
+
+> _
+═══════════════════════════════════════════════════════════════════════
+```
+
+### Option Handling
+
+| Option | Behavior |
+|--------|----------|
+| **[A] Analyze** | Load `adhoc-workflow` skill, run Phase 0 analysis, show ANALYSIS COMPLETE dashboard, wait for [G] before any implementation |
+| **[I] Inject** | Create TSK-### story, inject into PRD after current story, update todos, continue PRD flow (existing mid-PRD injection) |
+| **[S] Skip** | Acknowledge and continue with current PRD story |
+
+**Critical for [A]:** The full ad-hoc analysis flow applies. You MUST show the ANALYSIS COMPLETE dashboard and get [G] approval before implementing. This is not a shortcut.
+
+### What Counts as "Out of Scope"
+
+| User Says | In-Scope? | Why |
+|-----------|-----------|-----|
+| "Continue with US-002" | ✅ Yes | Explicit story reference |
+| "Implement the next story" | ✅ Yes | Continuing PRD flow |
+| "Fix the bug in the payment form" (and US-003 is about payment form) | ✅ Yes | Matches story topic |
+| "Also add a dark mode toggle" (not in any story) | ❌ No | New feature not in PRD |
+| "Fix the typo in the header" (not in any story) | ❌ No | Unrelated to PRD stories |
+| "Can you refactor this while you're at it" | ❌ No | Scope creep |
+
+**When in doubt, treat as out-of-scope.** It's better to ask than to silently expand scope.
+
+---
+
 ## Startup
 
 > ⛔ **MANDATORY: Project selection comes FIRST, regardless of what the user says.**
