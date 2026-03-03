@@ -114,6 +114,97 @@ Minimum checks:
    ```
 3. **Do NOT run `git commit`** — wait for user to commit manually
 
+## Git Workflow Enforcement
+
+> ⛔ **CRITICAL: Validate branch targets before ANY git push or PR operation**
+>
+> **Trigger:** Before running `git push`, `gh pr create`, or any auto-merge.
+>
+> **Check:** Read `project.json` → `git.agentWorkflow`
+>
+> **Failure behavior:** BLOCK the operation and show the appropriate error. No fallbacks, no warnings — hard stop.
+
+### Validation Protocol
+
+**Before `git push [branch]`:**
+1. Read `project.json` → `git.agentWorkflow`
+2. If `git.agentWorkflow` not defined: BLOCK (Missing Config Error)
+3. If target branch in `requiresHumanApproval`: BLOCK (Protected Branch Error)
+4. If target branch ≠ `pushTo`: BLOCK (Wrong Target Error)
+5. Proceed only if all checks pass
+
+**Before `gh pr create --base [branch]`:**
+1. Read `project.json` → `git.agentWorkflow`
+2. If `git.agentWorkflow` not defined: BLOCK (Missing Config Error)
+3. If `--base` branch in `requiresHumanApproval`: BLOCK (Protected Branch Error)
+4. If `--base` branch ≠ `createPrTo`: BLOCK (Wrong Target Error)
+5. Proceed only if all checks pass
+
+**Before auto-merge:**
+1. If target branch in `requiresHumanApproval`: BLOCK (human must merge)
+
+### Default Cascade
+
+When fields are not explicitly set:
+- `pushTo` defaults to `workBranch`
+- `workBranch` defaults to `defaultBranch`
+- `createPrTo` defaults to `defaultBranch`
+
+### Error Formats
+
+**Missing Config Error:**
+```
+⛔ GIT WORKFLOW NOT CONFIGURED
+
+This project requires git workflow configuration before I can perform git operations.
+
+Please describe your git workflow:
+1. What branch do you work on? (e.g., main, staging, develop)
+2. Where should I push changes? (e.g., same branch, staging branch)
+3. Where should PRs be created to? (e.g., main)
+4. Which branches require human approval? (e.g., main, production)
+
+I'll generate the configuration for your review.
+```
+
+**Protected Branch Error:**
+```
+⛔ PROTECTED BRANCH — HUMAN APPROVAL REQUIRED
+
+Attempted: git push origin main
+Branch 'main' is in requiresHumanApproval — all agent operations are blocked.
+
+This project's workflow:
+  - Work on: staging
+  - Push to: staging
+  - Create PRs to: main (requires human approval)
+
+To proceed:
+  1. Push to staging: git push origin staging
+  2. Create PR: gh pr create --base main
+  3. Get human approval and merge
+
+Source: docs/project.json → git.agentWorkflow.requiresHumanApproval
+```
+
+**Wrong Target Error:**
+```
+⛔ GIT WORKFLOW VIOLATION
+
+Attempted: git push origin develop
+Configured target: staging (from git.agentWorkflow.pushTo)
+
+This project's workflow:
+  - Work on: staging
+  - Push to: staging
+  - Create PRs to: main
+
+To proceed correctly:
+  git push origin staging
+
+Source: docs/project.json → git.agentWorkflow
+```
+
 ## Test Failure Output Policy
 
 > ⛔ **IMPORTANT: Never truncate test failure output**
