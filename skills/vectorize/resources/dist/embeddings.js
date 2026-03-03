@@ -7,6 +7,11 @@ import OpenAI from 'openai';
 const BATCH_SIZE = 100;
 const MAX_RETRIES = 3;
 const RETRY_DELAY = 1000;
+// Voyage API has a 120k token limit per batch
+// Estimate ~2 chars per token for code (very conservative)
+// Also limit batch to 50k tokens to leave room for API overhead
+const VOYAGE_MAX_TOKENS_PER_BATCH = 50000; // Very conservative limit
+const CHARS_PER_TOKEN_ESTIMATE = 2;
 // Model dimensions for normalization
 export const MODEL_DIMENSIONS = {
     // OpenAI
@@ -271,18 +276,36 @@ export async function generateQueryEmbeddingAuto(query, config = {}) {
 }
 /**
  * Generate embeddings using Voyage AI (recommended for code)
+ * Uses token-aware batching to stay under Voyage's 120k token limit
  */
 export async function generateVoyageEmbeddings(chunks, apiKey, model = 'voyage-code-3') {
     const results = [];
-    // Process in batches
-    for (let i = 0; i < chunks.length; i += BATCH_SIZE) {
-        const batch = chunks.slice(i, i + BATCH_SIZE);
-        const texts = batch.map(chunk => {
-            const content = chunk.context
-                ? `${chunk.context}\n\n${chunk.content}`
-                : chunk.content;
-            return content.substring(0, 30000);
-        });
+    // Prepare texts with token estimates
+    const preparedChunks = chunks.map(chunk => {
+        const content = chunk.context
+            ? `${chunk.context}\n\n${chunk.content}`
+            : chunk.content;
+        const text = content.substring(0, 30000);
+        const estimatedTokens = Math.ceil(text.length / CHARS_PER_TOKEN_ESTIMATE);
+        return { chunk, text, estimatedTokens };
+    });
+    // Process in token-aware batches
+    let i = 0;
+    while (i < preparedChunks.length) {
+        const batch = [];
+        let batchTokens = 0;
+        // Build batch until we hit token limit or chunk limit
+        while (i < preparedChunks.length && batch.length < BATCH_SIZE) {
+            const item = preparedChunks[i];
+            if (batchTokens + item.estimatedTokens > VOYAGE_MAX_TOKENS_PER_BATCH && batch.length > 0) {
+                // This chunk would exceed limit, stop here
+                break;
+            }
+            batch.push(item);
+            batchTokens += item.estimatedTokens;
+            i++;
+        }
+        const texts = batch.map(item => item.text);
         let retries = 0;
         while (retries < MAX_RETRIES) {
             try {
@@ -308,7 +331,7 @@ export async function generateVoyageEmbeddings(chunks, apiKey, model = 'voyage-c
                 const data = await response.json();
                 for (let j = 0; j < data.data.length; j++) {
                     results.push({
-                        chunkId: batch[j].id,
+                        chunkId: batch[j].chunk.id,
                         embedding: data.data[j].embedding,
                     });
                 }
@@ -329,8 +352,8 @@ export async function generateVoyageEmbeddings(chunks, apiKey, model = 'voyage-c
             }
         }
         // Progress indicator
-        if (i % (BATCH_SIZE * 10) === 0 && i > 0) {
-            console.log(`  Embedded ${i}/${chunks.length} chunks...`);
+        if (results.length % 100 === 0 && results.length > 0) {
+            console.log(`  Embedded ${results.length}/${chunks.length} chunks...`);
         }
     }
     return results;

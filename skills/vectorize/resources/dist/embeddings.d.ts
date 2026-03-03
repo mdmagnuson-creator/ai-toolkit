@@ -66,6 +66,7 @@ export declare function generateQueryEmbeddingAuto(query: string, config?: Embed
 }>;
 /**
  * Generate embeddings using Voyage AI (recommended for code)
+ * Uses token-aware batching to stay under Voyage's 120k token limit
  */
 export declare function generateVoyageEmbeddings(chunks: Chunk[], apiKey: string, model?: string): Promise<EmbeddingResult[]>;
 /**
