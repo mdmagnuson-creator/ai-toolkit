@@ -1299,6 +1299,44 @@
       "type": "object",
       "description": "AI agent behavior configuration",
       "properties": {
+        "workingDir": {
+          "type": "string",
+          "default": "ai-tmp",
+          "description": "Project-local directory for temporary AI working files (screenshots, intermediate outputs). Must be gitignored."
+        },
+        "verification": {
+          "type": "object",
+          "description": "Playwright verification configuration for UI changes. Controls mandatory visual verification before task completion.",
+          "properties": {
+            "mode": {
+              "type": "string",
+              "enum": ["playwright-required", "no-ui"],
+              "default": "playwright-required",
+              "description": "playwright-required: Builder must verify UI changes with Playwright before marking complete. no-ui: Skip Playwright (for backends, CLIs, libraries)."
+            },
+            "selectorStrategy": {
+              "type": "string",
+              "enum": ["strict", "flexible"],
+              "default": "strict",
+              "description": "strict: Tests must use data-testid, agent adds them if missing. flexible: Prefer data-testid, fall back to role/text selectors."
+            },
+            "testDir": {
+              "type": "string",
+              "default": "tests/ui-verify",
+              "description": "Directory for generated UI verification test scripts (committed to git)."
+            },
+            "screenshotDir": {
+              "type": "string",
+              "default": "ai-tmp/verification/screenshots",
+              "description": "Directory for temporary verification screenshots (gitignored)."
+            },
+            "reviewGeneratedTests": {
+              "type": "boolean",
+              "default": true,
+              "description": "Whether @quality-critic reviews generated verification tests."
+            }
+          }
+        },
         "criticMode": {
           "type": "string",
           "enum": ["strict", "balanced", "fast"],
@@ -1322,7 +1360,8 @@
         "browserVerification": {
           "type": "boolean",
           "default": true,
-          "description": "Whether UI changes need browser verification"
+          "deprecated": true,
+          "description": "DEPRECATED: Use agents.verification.mode instead. Whether UI changes need browser verification."
         },
         "heartbeatTimeoutMinutes": {
           "type": "integer",

@@ -946,6 +946,19 @@ If E2E tests detected:
 > _
 ```
 
+If project has a UI (detected frontend framework):
+
+```
+19. How should AI agents verify UI changes?
+    A. Playwright required - must verify with browser test (recommended)
+    B. No UI verification - backend/CLI only project
+    
+    Note: Playwright verification generates reusable test scripts in tests/ui-verify/
+    and captures screenshots for visual confirmation.
+
+> _
+```
+
 Store all infrastructure convention answers for use when generating CONVENTIONS.md.
 
 ---
@@ -1111,6 +1124,7 @@ When generating, replace placeholders with detected values:
 | `{{NO_MOCK_TARGETS}}` | Step 8d Q16 |
 | `{{E2E_SELECTOR_PRIORITY}}` | Step 8d Q17 |
 | `{{E2E_AUTH_PATTERN}}` | Step 8d Q18 |
+| `{{UI_VERIFICATION_MODE}}` | Step 8d Q19 (playwright-required or no-ui) |
 
 For sections that can't be auto-filled, leave the placeholder with a 
 `<!-- BOOTSTRAP NOTE: ... -->` comment explaining what to add.
@@ -1399,8 +1413,15 @@ Compile all detected and confirmed information into the manifest:
   "agents": {
     "autoCommit": true,
     "autoPush": true,
-    "browserVerification": "<has frontend>",
-    "prReviewRequired": false
+    "prReviewRequired": false,
+    "workingDir": "ai-tmp",
+    "verification": {
+      "mode": "<if has frontend: 'playwright-required', else: 'no-ui'>",
+      "selectorStrategy": "strict",
+      "testDir": "tests/ui-verify",
+      "screenshotDir": "ai-tmp/verification/screenshots",
+      "reviewGeneratedTests": true
+    }
   },
   
   "context": {
