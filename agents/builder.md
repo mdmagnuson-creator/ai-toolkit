@@ -112,6 +112,14 @@ See AGENTS.md for full rules. Include "autoCommit: [value]" in completion report
 
 ---
 
+## Git Workflow Enforcement
+
+> ⚓ See AGENTS.md § Git Workflow Enforcement
+
+Before any `git push` or `gh pr create`, validate branch targets against `project.json` → `git.agentWorkflow`. Missing config = BLOCK and prompt user to configure.
+
+---
+
 ## Skills Reference
 
 Builder workflows are defined in loadable skills. Load the appropriate skill based on the mode:
@@ -649,15 +657,42 @@ After the user selects a project number, show a **fast inline dashboard** — no
      Then restart the session.
      ```
 
-4. **Detect solo mode:**
-   - Check `project.json` → `agents.multiSession`
-    - If `false` (default) or missing → **Solo Mode** (simpler operation)
-    - If `true` → **Multi-session Mode** (full coordination)
+4. **Load and cache project context:**
 
-   **Detect git execution mode:**
-   - Read `project.json` → `agents.gitWorkflow`
-   - If `trunk`, resolve `agents.trunkMode` (`branchless` default)
-   - Resolve default execution branch from `git.defaultBranch` (fallback `main`)
+   Extract and cache project context from `project.json` for compaction resilience:
+   
+   ```javascript
+   // Extract from project.json
+   projectContext = {
+     loadedAt: new Date().toISOString(),
+     git: {
+       defaultBranch: project.git?.defaultBranch || "main",
+       branchingStrategy: project.git?.branchingStrategy || "trunk-based",
+       autoCommit: project.git?.autoCommit ?? true,
+       agentWorkflow: project.git?.agentWorkflow || null,
+       teamSync: project.git?.teamSync || { enabled: false }
+     },
+     environments: project.environments || {},
+     relatedProjects: project.relatedProjects || []
+   }
+   ```
+   
+   **Write to `builder-state.json`:**
+   ```json
+   {
+     "projectContext": { ... }
+   }
+   ```
+   
+   **Git workflow validation:**
+   - If `git.agentWorkflow` is not configured, workflows that require git push/PR will BLOCK
+   - See AGENTS.md § Git Workflow Enforcement for error formats
+   - Builder should prompt user to configure during first blocked operation
+
+   **Detect solo mode:**
+   - Check `project.json` → `agents.multiSession`
+   - If `false` (default) or missing → **Solo Mode** (simpler operation)
+   - If `true` → **Multi-session Mode** (full coordination)
 
 4.5 **Check for platform skill suggestions (one-time):**
    - Read `~/.config/opencode/data/skill-mapping.json`
@@ -2153,6 +2188,12 @@ project:
     test: {commands.test}
     build: {commands.build}
     lint: {commands.lint}
+git:
+  defaultBranch: {git.defaultBranch}
+  pushTo: {git.agentWorkflow.pushTo or defaultBranch}
+  createPrTo: {git.agentWorkflow.createPrTo or defaultBranch}
+  requiresHumanApproval: {git.agentWorkflow.requiresHumanApproval or []}
+  autoCommit: {git.autoCommit}
 conventions:
   summary: |
     {2-5 sentence summary of key conventions relevant to the task}
@@ -2163,6 +2204,8 @@ currentWork:
   branch: {current branch}
 </context>
 ```
+
+**Git context is required** — sub-agents need this to validate their git operations.
 
 ### Context Summary Guidelines
 

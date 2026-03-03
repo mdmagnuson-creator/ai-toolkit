@@ -45,6 +45,68 @@
       }
     },
 
+    "projectContext": {
+      "type": ["object", "null"],
+      "description": "Cached project context for compaction resilience. Re-read from project.json on startup, cached here for recovery.",
+      "properties": {
+        "loadedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "When context was loaded from project.json"
+        },
+        "git": {
+          "type": "object",
+          "description": "Git workflow configuration from project.json",
+          "properties": {
+            "defaultBranch": { "type": "string" },
+            "branchingStrategy": { "type": "string" },
+            "autoCommit": { "type": ["boolean", "string"] },
+            "agentWorkflow": {
+              "type": "object",
+              "properties": {
+                "workBranch": { "type": "string" },
+                "pushTo": { "type": "string" },
+                "createPrTo": { "type": "string" },
+                "requiresHumanApproval": {
+                  "type": "array",
+                  "items": { "type": "string" }
+                }
+              }
+            },
+            "teamSync": {
+              "type": "object",
+              "properties": {
+                "enabled": { "type": "boolean" },
+                "pushAfterCommit": { "type": "boolean" }
+              }
+            }
+          }
+        },
+        "environments": {
+          "type": "object",
+          "description": "Environment URLs from project.json",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "url": { "type": "string" }
+            }
+          }
+        },
+        "relatedProjects": {
+          "type": "array",
+          "description": "Related projects from project.json",
+          "items": {
+            "type": "object",
+            "properties": {
+              "projectId": { "type": "string" },
+              "relationship": { "type": "string" },
+              "description": { "type": "string" }
+            }
+          }
+        }
+      }
+    },
+
     "availableCLIs": {
       "type": ["object", "null"],
       "description": "Detected CLIs and their authentication status. Persisted to survive context compaction.",
