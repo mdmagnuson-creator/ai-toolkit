@@ -1,6 +1,6 @@
 # PRD: Token Optimization for Large Agents and Skills
 
-**Status:** DRAFT  
+**Status:** READY  
 **Created:** 2026-03-04  
 **Author:** @toolkit
 
