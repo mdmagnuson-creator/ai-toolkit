@@ -89,7 +89,60 @@ Builder MUST run verification BEFORE showing completion prompt. The verification
 
 **Key change:** Remove the generic `[V] Verify in browser` option. Replace with architecture-aware automatic verification.
 
-### 3. Electron E2E Cleanup Patterns
+### 3. Pre-Analysis Screenshots for Ad-Hoc Mode
+
+**Ad-hoc requests ALWAYS get a screenshot before analysis.** This ensures Builder sees the actual current state, not just what the code suggests.
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Ad-Hoc Request Received                                     │
+├─────────────────────────────────────────────────────────────┤
+│ 1. Determine app type from project.json                     │
+│ 2. Ensure app is running:                                   │
+│    - Web app → Start dev server if not running              │
+│    - Desktop app → Launch app if not running                │
+│ 3. Take screenshot of current state                         │
+│ 4. Perform code analysis                                    │
+│ 5. Present BOTH screenshot AND code findings to user        │
+│ 6. Wait for approval before implementing                    │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Why this matters:**
+- Code analysis alone misses CSS inheritance, runtime state, and visual bugs
+- Screenshot reveals what the user actually sees
+- Prevents "I'll fix the blue button" when the button is actually gray due to CSS override
+
+**Analysis presentation with screenshot:**
+```
+═══════════════════════════════════════════════════════════════
+                    ANALYSIS COMPLETE
+═══════════════════════════════════════════════════════════════
+
+📸 Current state: [screenshot attached]
+
+Based on visual + code analysis:
+- [Findings that reference both what's seen AND what's in code]
+- [Any discrepancies between code and visual state]
+
+Proposed changes:
+- [List of changes]
+
+[A] Approve  [R] Revise  [C] Cancel
+═══════════════════════════════════════════════════════════════
+```
+
+**App startup behavior:**
+
+| App Type | If Not Running |
+|----------|----------------|
+| Web app | Start dev server (`npm run dev` or configured command), wait for ready |
+| Desktop (bundled) | Launch app (`npm run start` or configured command) |
+| Desktop (remote) | Screenshot the deployed URL directly (no local app needed) |
+
+**Note:** This applies to ad-hoc mode only. PRD mode has structured requirements and doesn't need pre-analysis screenshots.
+
+### 4. Electron E2E Cleanup Patterns
 
 Add `globalSetup.ts` pattern to `e2e-electron` skill (or create if missing):
 
@@ -146,7 +199,20 @@ export default async function globalSetup() {
 - [ ] `[V] Verify` option removed from completion prompt (verification already done)
 - [ ] If verification fails, Builder reports failure instead of claiming completion
 
-### Story 3: Electron Zombie Process Cleanup
+### Story 3: Pre-Analysis Screenshots for Ad-Hoc Requests
+**As** a user making an ad-hoc request  
+**When** Builder analyzes my request  
+**I should** see a screenshot of the current state alongside the code analysis  
+**So that** Builder and I are looking at the same thing and discrepancies are caught early
+
+**Acceptance Criteria:**
+- [ ] Ad-hoc requests ALWAYS trigger a screenshot before analysis
+- [ ] If app not running, Builder starts it automatically (dev server or desktop app)
+- [ ] Screenshot is attached to analysis presentation
+- [ ] Analysis references both visual state and code findings
+- [ ] Desktop (remote) apps screenshot the deployed URL directly
+
+### Story 4: Electron Zombie Process Cleanup
 **As** a developer running Electron E2E tests  
 **When** tests fail or are interrupted  
 **I should** not accumulate zombie Electron processes  
@@ -165,8 +231,9 @@ export default async function globalSetup() {
 | File | Changes |
 |------|---------|
 | `skills/test-flow/SKILL.md` | Add platform/architecture detection, pre-completion verification gate |
-| `skills/adhoc-workflow/SKILL.md` | Enforce verification before completion prompt |
-| `skills/e2e-electron/SKILL.md` | Add globalSetup cleanup patterns (create if missing) |
+| `skills/adhoc-workflow/SKILL.md` | Add pre-analysis screenshot requirement, enforce verification before completion |
+| `skills/e2e-electron/SKILL.md` | Add globalSetup cleanup patterns (create new skill) |
+| `skills/start-dev-server/SKILL.md` | Ensure it handles desktop app startup (not just web dev servers) |
 | `agents/builder.md` | Remove generic `[V]` option, add architecture-aware verification logic |
 | `schemas/project.schema.json` | Add `webContent` field to `apps[]` schema |
 | `skills/project-bootstrap/SKILL.md` | Document `webContent` field during project setup |
@@ -197,6 +264,11 @@ export default async function globalSetup() {
    - Follows existing pattern (`e2e-playwright` is a specialist)
    - `test-flow` remains the router, delegates to `e2e-electron` for Electron apps
 
+4. **Pre-analysis screenshots are ALWAYS taken for ad-hoc requests**
+   - Automatic, not opt-in
+   - App is started automatically if not running
+   - Applies to ad-hoc mode only (not PRD mode)
+
 ---
 
 ## Success Metrics
@@ -205,6 +277,8 @@ export default async function globalSetup() {
 - Zero post-completion verification prompts (all pre-completion)
 - No zombie Electron processes after test runs
 - Time-to-verification reduced (no wasted attempts)
+- Ad-hoc analysis always includes screenshot (100% coverage)
+- Zero "code said X but UI showed Y" surprises during implementation
 
 ---
 
