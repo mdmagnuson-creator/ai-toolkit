@@ -19,11 +19,40 @@ This skill starts the project's dev server(s) using configuration from `project.
 
 When invoking this skill, provide:
 - **projectPath**: Absolute path to the project root (e.g., `/Users/markmagnuson/code/my-project`)
-- **mode** (optional): `local` (default) or `remote-check`
+- **mode** (optional): `local` (default), `remote-check`, or `desktop`
 
 ## Steps
 
-### Step 0: Resolve Test URL and Determine Mode
+### Step 0: Determine App Type and Mode
+
+Before resolving URLs, check if this is a desktop or web app:
+
+```bash
+cd "$projectPath"
+
+# Check for desktop app configuration
+DESKTOP_APP=$(jq -r '.apps[] | select(.type == "desktop") | .framework' docs/project.json 2>/dev/null | head -1)
+WEB_CONTENT=$(jq -r '.apps[] | select(.type == "desktop") | .webContent' docs/project.json 2>/dev/null | head -1)
+REMOTE_URL=$(jq -r '.apps[] | select(.type == "desktop") | .remoteUrl' docs/project.json 2>/dev/null | head -1)
+
+if [ -n "$DESKTOP_APP" ] && [ "$DESKTOP_APP" != "null" ]; then
+  APP_TYPE="desktop"
+  FRAMEWORK="$DESKTOP_APP"
+  echo "Desktop app detected: $FRAMEWORK (webContent: $WEB_CONTENT)"
+else
+  APP_TYPE="web"
+  echo "Web app detected"
+fi
+```
+
+| App Type | webContent | Behavior |
+|----------|------------|----------|
+| `web` | *(N/A)* | Standard dev server startup (Steps 1-7) |
+| `desktop` | `bundled` | Launch desktop app (Step 0c) |
+| `desktop` | `remote` | Skip to remote health check (Step 0a) using `remoteUrl` |
+| `desktop` | `hybrid` | Start dev server for web content, then launch app |
+
+### Step 0a: Resolve Test URL and Determine Mode
 
 Before doing anything else, resolve the test URL to determine if local or remote testing:
 
@@ -140,6 +169,112 @@ fi
 ```
 
 **If devPort is null:** This project cannot run locally (e.g., remote-only codebase, library, or cloud-native app without local dev). The skill will check for configured remote URLs and suggest alternatives.
+
+### Step 0c: Desktop App Startup (if APP_TYPE=desktop)
+
+For desktop apps, the startup process differs based on `webContent`:
+
+```bash
+if [ "$APP_TYPE" = "desktop" ]; then
+  case "$WEB_CONTENT" in
+    "remote")
+      # Remote content — no local app needed, just verify remote URL
+      echo "Desktop app loads remote content from: $REMOTE_URL"
+      TEST_BASE_URL="$REMOTE_URL"
+      MODE="remote"
+      # Proceed to remote health check (Step 0a logic)
+      ;;
+    
+    "bundled")
+      # Bundled content — launch the desktop app
+      echo "Launching desktop app ($FRAMEWORK)..."
+      
+      # Determine start command
+      START_CMD=$(jq -r '.commands.start // "npm run start"' docs/project.json 2>/dev/null)
+      
+      # Kill any existing instances first (avoid multiple app windows)
+      case "$FRAMEWORK" in
+        "electron")
+          pkill -f "Electron" 2>/dev/null || true
+          ;;
+        "tauri")
+          pkill -f "tauri" 2>/dev/null || true
+          ;;
+      esac
+      
+      # Create .tmp directory for PID files
+      mkdir -p "$projectPath/.tmp"
+      
+      # Start the app in background
+      eval "$START_CMD" &
+      APP_PID=$!
+      echo "desktop:$APP_PID" >> "$projectPath/.tmp/dev-server.pids"
+      echo "Started $FRAMEWORK app (PID: $APP_PID)"
+      
+      # Wait for app window to appear (platform-specific)
+      if [ "$(uname)" = "Darwin" ]; then
+        APP_NAME=$(jq -r '.name // "App"' package.json 2>/dev/null)
+        TIMEOUT=30
+        ELAPSED=0
+        while [ $ELAPSED -lt $TIMEOUT ]; do
+          # Check if app window exists
+          if osascript -e "tell application \"System Events\" to (name of processes) contains \"$APP_NAME\"" 2>/dev/null | grep -q "true"; then
+            echo "✓ Desktop app ready: $APP_NAME"
+            export APP_TYPE="desktop"
+            export DESKTOP_READY="true"
+            break
+          fi
+          sleep 1
+          ELAPSED=$((ELAPSED + 1))
+        done
+        
+        if [ "$ELAPSED" -ge "$TIMEOUT" ]; then
+          echo "⚠️ Desktop app may not have started properly (timeout)"
+          echo "Check console for errors"
+        fi
+      fi
+      
+      # For desktop bundled apps, there's no TEST_BASE_URL — screenshots use app capture
+      echo ""
+      echo "Desktop app started. Use window capture for screenshots."
+      exit 0
+      ;;
+    
+    "hybrid")
+      # Hybrid — start dev server for web content, then launch app
+      echo "Hybrid app: starting dev server for web content..."
+      MODE="local"
+      # Fall through to normal dev server startup (Steps 1-7)
+      # After dev server is ready, the calling workflow should launch the desktop app
+      ;;
+    
+    *)
+      echo "⚠️ Unknown webContent type: $WEB_CONTENT"
+      echo "For desktop apps, set apps[].webContent to: bundled, remote, or hybrid"
+      exit 1
+      ;;
+  esac
+fi
+
+# If we reach here with MODE=remote, run remote health check
+if [ "$MODE" = "remote" ]; then
+  # Continue with Step 0a logic for remote health check
+  :
+fi
+```
+
+**Desktop app framework commands:**
+
+| Framework | Default Start Command | Kill Pattern |
+|-----------|----------------------|--------------|
+| Electron | `npm run start` | `pkill -f "Electron"` |
+| Tauri | `npm run tauri dev` | `pkill -f "tauri"` |
+| React Native | N/A (mobile) | N/A |
+
+**Note:** For `hybrid` apps, the calling workflow (e.g., adhoc-workflow) should:
+1. Start the dev server using this skill
+2. Then launch the desktop app separately
+3. The app will load content from the local dev server
 
 ### Step 1: Load Project Configuration
 
@@ -392,6 +527,24 @@ fi
 |-------|------|-------------|
 | `projects[].devPort` | integer | Fallback dev port (single-app projects) |
 
+### project.json fields (desktop apps)
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `apps[].type` | string | App type: `web`, `desktop`, `mobile` |
+| `apps[].framework` | string | Framework: `electron`, `tauri`, `react-native`, etc. |
+| `apps[].webContent` | enum | How app loads web content: `bundled`, `remote`, `hybrid` |
+| `apps[].remoteUrl` | string | URL for remote content (required when `webContent: "remote"`) |
+| `commands.start` | string | Command to launch desktop app (default: `npm run start`) |
+
+**Desktop app webContent values:**
+
+| Value | Description | Startup Behavior |
+|-------|-------------|------------------|
+| `bundled` | HTML/JS packaged with app | Launch app, wait for window |
+| `remote` | App loads deployed URL | Skip startup, verify remote URL |
+| `hybrid` | Some local, some remote | Start dev server, then launch app |
+
 ## Example
 
 ### Input
@@ -465,3 +618,6 @@ Dev servers ready:
 | "Dev server failed to become ready" | Server didn't respond to health check within timeout | Cleanup kills orphaned processes automatically; check logs at `.tmp/dev-server.log` |
 | "Process terminated unexpectedly" | Server crashed on startup | Check terminal output for errors |
 | Orphaned node processes after failure | Old bug: cleanup wasn't called on timeout | Fixed: Step 6 now kills PIDs before exit on failure |
+| "Unknown webContent type" | Desktop app missing `webContent` field | Set `apps[].webContent` to `bundled`, `remote`, or `hybrid` |
+| "Desktop app may not have started properly" | App window didn't appear within timeout | Check console for errors, verify app builds correctly |
+| "Remote URL not reachable" | Remote deployment down or unreachable | Check deployment status, verify URL is correct |

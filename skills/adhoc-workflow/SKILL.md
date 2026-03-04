@@ -193,6 +193,75 @@ Task Specs follow the **same lifecycle as PRDs** but in a parallel folder struct
 
 When user gives a task in ad-hoc mode:
 
+### Step 0.0a: Pre-Analysis Screenshot (MANDATORY)
+
+> ⛔ **CRITICAL: ALWAYS capture a screenshot BEFORE analyzing the request.**
+>
+> This is NOT optional. Code analysis alone misses CSS inheritance, runtime state, and visual bugs.
+> The screenshot reveals what the user actually sees, preventing "I'll fix the blue button" when the button is actually gray.
+
+**Why this matters:**
+- Visual issues are best caught visually — code analysis alone is insufficient
+- Prevents misunderstandings between Builder and user about current state
+- Catches CSS overrides, runtime state, and inheritance that code analysis misses
+
+**Workflow:**
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│ Ad-Hoc Request Received                                     │
+├─────────────────────────────────────────────────────────────┤
+│ 1. Determine app type from project.json                     │
+│ 2. Ensure app is running (auto-start if needed)             │
+│ 3. Take screenshot of current state                         │
+│ 4. Then proceed to code analysis (Step 0.1)                 │
+│ 5. Present BOTH screenshot AND code findings to user        │
+└─────────────────────────────────────────────────────────────┘
+```
+
+**Step 0.0a.1: Determine App Type**
+
+Read `project.json` to determine the app architecture:
+
+```bash
+# Check for desktop app configuration
+jq -r '.apps[] | select(.type == "desktop") | {framework, webContent, remoteUrl}' docs/project.json 2>/dev/null
+```
+
+| App Type | webContent | Action |
+|----------|------------|--------|
+| Web app | *(none)* | Start dev server if not running, screenshot localhost |
+| Desktop | `bundled` | Launch app if not running, screenshot app window |
+| Desktop | `remote` | Screenshot the deployed `remoteUrl` directly (no local app needed) |
+| Desktop | `hybrid` | Start dev server for local content, screenshot |
+
+**Step 0.0a.2: Ensure App is Running**
+
+| App Type | If Not Running |
+|----------|----------------|
+| Web app | Load `start-dev-server` skill, start dev server |
+| Desktop (bundled) | Load `start-dev-server` skill with `mode: desktop` |
+| Desktop (remote) | No startup needed — screenshot deployed URL directly |
+
+**Step 0.0a.3: Capture Screenshot**
+
+Load the `screenshot` skill and capture the current state:
+
+```
+Capturing current state...
+```
+
+- Use `screenshot` skill with the appropriate URL:
+  - Web app: `http://localhost:{devPort}`
+  - Desktop (bundled): Capture running app window
+  - Desktop (remote): `{apps[].remoteUrl}`
+- Capture BOTH light and dark modes if applicable
+- Store screenshots in `.tmp/screenshots/pre-analysis/`
+
+**Step 0.0a.4: Attach to Analysis**
+
+The screenshot will be attached to the analysis dashboard (Step 0.2). Do NOT show the screenshot separately — it's part of the analysis presentation.
+
 ### Step 0.1: Time-Boxed Analysis (10 seconds)
 
 Run analysis with visible progress indicator:
@@ -227,18 +296,26 @@ If analysis times out, show what was found with note: "⚠️ Analysis may be in
 
 ### Step 0.2: Show Analysis Dashboard
 
-Display results with progressive disclosure:
+Display results with progressive disclosure. **The pre-analysis screenshot from Step 0.0a MUST be attached.**
 
 ```
 ═══════════════════════════════════════════════════════════════════════
                          ANALYSIS COMPLETE
 ═══════════════════════════════════════════════════════════════════════
 
+📸 CURRENT STATE: [screenshot attached]
+   (screenshot from .tmp/screenshots/pre-analysis/)
+
 📋 REQUEST: "Add loading spinner to submit button"
 
 📊 UNDERSTANDING                                    Confidence: HIGH
 ───────────────────────────────────────────────────────────────────────
-Add visual loading feedback to SubmitButton component:
+Based on visual + code analysis:
+- The submit button is currently a blue primary button (visible in screenshot)
+- No loading indicator exists — button stays static during submission
+- Existing Spinner component available in design system
+
+Proposed:
 - Show spinner icon during form submission
 - Disable button while loading to prevent double-submit
 - Use existing Spinner component from design system
@@ -275,6 +352,11 @@ TSK-004: Add unit tests
 > _
 ═══════════════════════════════════════════════════════════════════════
 ```
+
+> ⚠️ **The screenshot is NOT optional.** If screenshot capture failed:
+> - Show error reason (e.g., "Dev server not running", "Remote URL unreachable")
+> - Offer options: `[R] Retry screenshot`, `[S] Skip screenshot (not recommended)`, `[C] Cancel`
+> - If user chooses `[S]`, proceed but note "⚠️ Analysis based on code only — visual state not verified"
 
 **Dashboard rules:**
 - **Confidence:** HIGH (clear request) / MEDIUM (some ambiguity) / LOW (needs clarification)

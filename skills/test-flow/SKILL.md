@@ -359,6 +359,99 @@ Read verification settings from `project.json`:
 | `screenshotDir` | path | Where to save verification screenshots (gitignored) |
 | `reviewGeneratedTests` | boolean | Whether @quality-critic reviews generated tests |
 
+### Architecture-Aware Verification
+
+> 🎯 **Before running verification, detect app architecture to choose the optimal strategy.**
+>
+> Desktop apps may bundle web content or load a remote URL — this affects how verification works.
+
+**Step 0: Read App Architecture (BEFORE verification)**
+
+```
+function determineVerificationStrategy(project, changedFiles):
+  # Find which app(s) were modified
+  for appName, appConfig in project.apps:
+    if anyFileMatchesPath(changedFiles, appConfig.path):
+      
+      # Check if desktop/mobile app
+      if appConfig.type in ["desktop", "mobile"]:
+        
+        # Check webContent field (REQUIRED for desktop apps)
+        if !appConfig.webContent:
+          return {
+            strategy: "error",
+            message: "Desktop app '${appName}' is missing 'webContent' field. Run project bootstrap to configure."
+          }
+        
+        # Select strategy based on webContent
+        match appConfig.webContent:
+          case "bundled":
+            return {
+              strategy: "launch-app",
+              executablePath: appConfig.testing?.executablePath,
+              devLaunchArgs: appConfig.testing?.devLaunchArgs,
+              framework: appConfig.framework  # electron, tauri, etc.
+            }
+          
+          case "remote":
+            return {
+              strategy: "verify-web-url",
+              baseUrl: appConfig.remoteUrl,
+              # Can verify via the web without launching the app
+            }
+          
+          case "hybrid":
+            return {
+              strategy: "hybrid",
+              baseUrl: appConfig.remoteUrl,
+              executablePath: appConfig.testing?.executablePath,
+              # Determine per-feature which approach to use
+            }
+      
+      # Web apps - standard browser verification
+      if appConfig.type in ["frontend", "fullstack"]:
+        return {
+          strategy: "browser",
+          baseUrl: resolveTestBaseUrl(project)  # Uses test-url-resolution skill
+        }
+  
+  # No matching app found
+  return { strategy: "not-required" }
+```
+
+**Verification Strategy Table:**
+
+| App Type | webContent | Strategy | How Verification Works |
+|----------|------------|----------|------------------------|
+| frontend/fullstack | n/a | `browser` | Standard Playwright against dev server URL |
+| desktop | `bundled` | `launch-app` | Launch Electron/Tauri app, test with Playwright |
+| desktop | `remote` | `verify-web-url` | Test web URL directly — no app launch needed |
+| desktop | `hybrid` | `hybrid` | Test web URL for remote features, launch app for bundled UI |
+| backend/cli | n/a | `not-required` | No UI verification |
+
+**Remote URL Verification (Desktop with webContent: "remote")**
+
+For desktop apps that wrap a web application:
+
+1. Verification can happen via the web URL without launching the desktop app
+2. This is faster and doesn't require building/packaging the app
+3. Use `apps.<appName>.remoteUrl` as the base URL
+4. Skip app-specific tests (window chrome, native menus) for remote content
+
+Example `project.json`:
+```json
+{
+  "apps": {
+    "desktop": {
+      "type": "desktop",
+      "framework": "electron",
+      "webContent": "remote",
+      "remoteUrl": "https://app.myservice.com"
+    }
+  }
+}
+```
+
 ### Verification Status Returns
 
 After running verification activities, return a structured status:
@@ -393,6 +486,19 @@ Task complete (file changes detected)
     │
     ▼
 ┌─────────────────────────────────────────────────────────────────────┐
+│ STEP 0: Determine Verification Strategy (Architecture Check)        │
+│                                                                     │
+│ Read project.json → apps.<affected-app>                             │
+│   • Check app.type (frontend, backend, desktop, mobile, cli)        │
+│   • If desktop/mobile: read app.webContent (bundled, remote, hybrid)│
+│   • Select strategy: browser, launch-app, verify-web-url, hybrid    │
+│                                                                     │
+│ If webContent is missing for desktop app:                           │
+│   → ERROR: Run project bootstrap to configure webContent            │
+└─────────────────────────────────────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────────────────────────────────────┐
 │ STEP 1: Check if UI verification required                           │
 │                                                                     │
 │ Read project.json → agents.verification.mode                        │
@@ -408,6 +514,12 @@ Task complete (file changes detected)
 ┌─────────────────────────────────────────────────────────────────────┐
 │ STEP 2: Generate verification test                                   │
 │                                                                     │
+│ Based on strategy from Step 0:                                       │
+│   • browser: Standard Playwright test against dev server            │
+│   • launch-app: Playwright-Electron test against packaged app       │
+│   • verify-web-url: Playwright test against remoteUrl               │
+│   • hybrid: Determine per-feature (remote features → web URL)       │
+│                                                                     │
 │ Run @e2e-playwright with mode: "verification"                       │
 │   • Generates test in testDir (e.g., tests/ui-verify/[name].spec.ts)│
 │   • If selectorStrategy: "strict", adds data-testid to components  │
@@ -418,7 +530,11 @@ Task complete (file changes detected)
 ┌─────────────────────────────────────────────────────────────────────┐
 │ STEP 3: Run verification test                                       │
 │                                                                     │
-│ Start dev server if needed                                          │
+│ Based on strategy from Step 0:                                       │
+│   • browser: Start dev server, execute Playwright                   │
+│   • launch-app: Launch app via executablePath or devLaunchArgs      │
+│   • verify-web-url: No dev server needed, use remoteUrl directly    │
+│                                                                     │
 │ Execute: npx playwright test <generated-test>                       │
 │ Capture screenshot to screenshotDir                                 │
 └─────────────────────────────────────────────────────────────────────┘
@@ -1009,6 +1125,12 @@ const ENVIRONMENT_PATTERNS = {
     /another instance/i,
     /lock file exists/i,
   ],
+  zombieProcess: [
+    /multiple.*Electron.*processes/i,
+    /orphaned.*process/i,
+    /zombie.*process/i,
+    /stale.*process/i,
+  ],
   portConflict: [
     /port.*in use/i,
     /ECONNREFUSED/,
@@ -1035,6 +1157,68 @@ const ENVIRONMENT_PATTERNS = {
     /file is locked/i,
   ],
 };
+```
+
+### Electron Zombie Process Pre-Check
+
+> ⚠️ **Run this check BEFORE launching Electron E2E tests.**
+>
+> Zombie Electron processes from previous failed/interrupted tests cause:
+> - "App already running" errors
+> - Multiple dock icons on macOS
+> - Tests hanging indefinitely
+> - Inconsistent test results
+
+**Detection (run before tests):**
+
+```bash
+# Check for existing Electron processes
+ZOMBIE_COUNT=$(pgrep -f "Electron" | wc -l | tr -d ' ')
+
+if [ "$ZOMBIE_COUNT" -gt "0" ]; then
+  echo "⚠️ Found $ZOMBIE_COUNT Electron-related processes"
+  
+  # Show process details
+  pgrep -af "Electron" 2>/dev/null || true
+fi
+```
+
+**If zombies detected, show prompt:**
+
+```
+═══════════════════════════════════════════════════════════════════════
+              ⚠️ ZOMBIE ELECTRON PROCESSES DETECTED
+═══════════════════════════════════════════════════════════════════════
+
+Found 3 Electron-related processes that may interfere with tests:
+
+  PID 12345: Electron Helper (Renderer)
+  PID 12346: Electron Helper (GPU)
+  PID 12347: YourApp
+
+These are likely orphaned from previous test runs.
+
+[K] Kill all and continue
+[S] Skip cleanup (may cause test failures)
+[C] Cancel tests
+
+═══════════════════════════════════════════════════════════════════════
+```
+
+**Auto-cleanup on [K]:**
+
+Load the `e2e-electron` skill and use its `globalSetup.ts` pattern:
+
+```bash
+# Kill zombie processes
+pkill -9 -f "Electron Helper" || true
+pkill -9 -f "Electron" || true
+killall -9 "YourApp" || true
+
+# Wait for cleanup
+sleep 0.5
+
+echo "✓ Cleanup complete, proceeding with tests"
 ```
 
 ### Environment Fix Flow
@@ -1095,7 +1279,8 @@ find ~/.config/opencode/skills -name "SKILL.md" -exec grep -l "$CATEGORY" {} \;
 
 | Error Pattern | Category | Skill to Load |
 |---------------|----------|---------------|
-| `EADDRINUSE` + Electron | processConflict | `electron-testing` |
+| `EADDRINUSE` + Electron | processConflict | `e2e-electron` |
+| Zombie Electron processes | zombieProcess | `e2e-electron` |
 | `ECONNREFUSED` on port 3000 | portConflict | `start-dev-server` |
 | Docker container issue | nativeAppBootstrap | `docker-testing` |
 | Tauri app launch failed | nativeAppBootstrap | `tauri-testing` |

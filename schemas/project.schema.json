@@ -305,6 +305,16 @@
             "description": "Runtime environment for mobile apps (e.g., hermes, jsc for React Native)",
             "enum": ["hermes", "jsc", "v8", "javascriptcore", "dart"]
           },
+          "webContent": {
+            "type": "string",
+            "enum": ["bundled", "remote", "hybrid"],
+            "description": "How web content is loaded in desktop/mobile apps. bundled: Local HTML/JS in app package (Electron, Tauri). remote: Loads external URL (WebView wrapping web app). hybrid: Mix of both. Required for type='desktop' to determine verification strategy."
+          },
+          "remoteUrl": {
+            "type": "string",
+            "pattern": "^https?://",
+            "description": "Base URL for remote web content (required when webContent='remote' or 'hybrid'). Used by agents to determine verification target. Example: 'https://app.myservice.com'"
+          },
           "testing": {
             "type": "object",
             "description": "Per-app testing configuration. Falls back to project-level testing config if not specified.",

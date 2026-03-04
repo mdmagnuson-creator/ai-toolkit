@@ -488,6 +488,11 @@ If `package.json` exists, read it and detect:
 | `dependencies.resend` | Integration: Resend |
 | `dependencies.openai` | Integration: OpenAI |
 | `workspaces` field exists | Structure: Monorepo |
+| `dependencies.electron` or `devDependencies.electron` | Framework: Electron, Type: desktop |
+| `dependencies.@tauri-apps/api` | Framework: Tauri, Type: desktop |
+| `dependencies.react-native` | Framework: React Native, Type: mobile |
+| `dependencies.expo` | Framework: Expo (React Native), Type: mobile |
+| `dependencies.@capacitor/core` | Framework: Capacitor, Type: mobile |
 
 ### go.mod Analysis
 
@@ -541,8 +546,11 @@ const detected = {
   languages: [],           // ['typescript', 'go']
   runtime: null,           // 'node' | 'go' | 'python' | etc
   packageManager: null,    // 'npm' | 'yarn' | 'pnpm' | 'bun'
-  framework: null,         // 'nextjs' | 'express' | 'chi' | etc
+  framework: null,         // 'nextjs' | 'express' | 'chi' | 'electron' | 'tauri' | etc
   frameworkVersion: null,
+  appType: null,           // 'frontend' | 'backend' | 'fullstack' | 'desktop' | 'mobile' | 'cli'
+  webContent: null,        // For desktop/mobile: 'bundled' | 'remote' | 'hybrid'
+  remoteUrl: null,         // For webContent='remote' or 'hybrid': base URL
   structure: null,         // 'monorepo' | 'single-app'
   styling: null,           // 'tailwind' | 'css-modules' | etc
   database: null,          // 'postgres' | 'mysql' | etc
@@ -629,6 +637,36 @@ Use lettered options for quick responses:
 ```
 
 **User can respond:** `1A, 2C, 3A, 4A`
+
+### Desktop/Mobile App Questions
+
+If a desktop or mobile app is detected (Electron, Tauri, React Native, etc.), ask:
+
+```
+═══════════════════════════════════════════════════════════════════════
+                       DESKTOP/MOBILE APP CONFIGURATION
+═══════════════════════════════════════════════════════════════════════
+
+5. How does your app load web content?
+   A. Bundled — HTML/JS/CSS packaged inside the app (typical Electron/Tauri)
+   B. Remote — App loads an external URL (WebView wrapping a web app)
+   C. Hybrid — Mix of bundled UI with some remote content
+
+   ℹ️  This affects how AI agents verify UI changes:
+      • Bundled: Agents launch the app directly for verification
+      • Remote: Agents can verify via the web URL without launching the app
+      • Hybrid: Agents need to determine which verification method per feature
+```
+
+If user selects B (Remote) or C (Hybrid):
+```
+6. What is the base URL for the remote content?
+   > _
+   
+   Example: https://app.myservice.com
+```
+
+Store these in `apps.<appName>.webContent` and `apps.<appName>.remoteUrl`.
 
 ---
 

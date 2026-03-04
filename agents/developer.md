@@ -198,7 +198,50 @@ Load the `multi-session` skill for detailed session coordination steps:
 5. **Update heartbeat** (multi-session mode only) — see `multi-session` skill
    - **Solo Mode:** Skip heartbeat updates
 
-6. **Commit ALL changes (including state files):**
+6. **Run test documentation sync (BEFORE commit):**
+
+   > ⛔ **CRITICAL: Sync test docs before committing to catch stale references.**
+   
+   **Step 6a: Extract keywords from diff:**
+   ```bash
+   git diff HEAD --name-only  # See what changed
+   git diff HEAD              # Extract removed/renamed identifiers
+   ```
+   
+   Look for: removed/renamed function names, variable names, string literals, comments, class names.
+   
+   **Step 6b: Expand keywords semantically:**
+   - `showQRCode` → `showQRCode`, `QR code`, `QR-code`, `qrcode`
+   - `handlePayment` → `handlePayment`, `payment handler`
+   
+   **Step 6c: Search test files:**
+   ```bash
+   grep -rn "<keywords>" tests/ e2e/ __tests__/ --include="*.ts" --include="*.tsx" | grep -v node_modules
+   ```
+   
+   **Step 6d: Handle matches:**
+   | Matches | Action |
+   |---------|--------|
+   | 0 | Proceed to commit |
+   | 1-5 | Auto-update comments/docstrings, show changes |
+   | 6-15 | Show matches, confirm before updating |
+   | 16+ | Narrow search scope, ask Builder for guidance |
+   
+   **Step 6e: Update stale references:**
+   - Read each file with a match
+   - Update comments/docstrings to reflect new behavior
+   - Prioritize files already touched in this change
+   - Never modify files outside `tests/`, `e2e/`, `__tests__/`
+   
+   **Step 6f: Verify no stale references remain:**
+   ```bash
+   grep -rn "<original-keywords>" tests/ e2e/ --include="*.ts" | grep -v node_modules | wc -l
+   # Should return 0
+   ```
+   
+   If matches remain: fix them before proceeding to commit.
+
+7. **Commit ALL changes (including state files and updated test docs):**
 
    > ⚓ **AGENTS.md: Git Auto-Commit Enforcement**
    
@@ -211,7 +254,7 @@ Load the `multi-session` skill for detailed session coordination steps:
    git commit -m "feat: [Story ID] - [Story Title]"
    ```
 
-7. **Validate push target (BEFORE pushing):**
+8. **Validate push target (BEFORE pushing):**
 
    > ⚓ **AGENTS.md: Git Workflow Enforcement**
    

@@ -1,3 +1,8 @@
+---
+name: e2e-electron
+description: "Patterns for Playwright E2E tests for Electron applications. Use when testing desktop apps built with Electron. Triggers on: Electron tests, desktop E2E, Electron app testing."
+---
+
 # E2E Electron Testing Skill
 
 This skill provides patterns and instructions for writing Playwright E2E tests for Electron applications.
@@ -8,6 +13,134 @@ Load this skill when:
 - `apps[*].framework === 'electron'`
 - `apps[*].testing.framework === 'playwright-electron'`
 - `apps[*].type === 'desktop'` and Electron detected in `package.json`
+
+## Zombie Process Cleanup (CRITICAL)
+
+> ⛔ **Electron apps leave zombie processes when tests fail or are interrupted.**
+>
+> **Symptoms:**
+> - Multiple dock icons on macOS
+> - "App already running" errors
+> - Tests hang indefinitely
+> - CPU usage from orphaned Electron processes
+>
+> **Fix:** Use `globalSetup.ts` to clean up before EVERY test run.
+
+### globalSetup.ts Pattern (MANDATORY)
+
+Create `playwright/globalSetup.ts`:
+
+```typescript
+import { execSync } from 'child_process';
+
+/**
+ * Playwright global setup for Electron tests.
+ * Kills any zombie Electron processes from previous runs.
+ * 
+ * CRITICAL: This prevents "app already running" errors and zombie processes.
+ */
+export default async function globalSetup(): Promise<void> {
+  const appName = process.env.ELECTRON_APP_NAME || 'Electron';
+  
+  console.log(`[globalSetup] Cleaning up zombie ${appName} processes...`);
+  
+  if (process.platform === 'darwin') {
+    // macOS cleanup
+    try {
+      // Kill Electron helper processes
+      execSync('pkill -9 -f "Electron Helper" || true', { stdio: 'ignore' });
+      // Kill main Electron process
+      execSync('pkill -9 -f "Electron" || true', { stdio: 'ignore' });
+      // Kill named app if different from "Electron"
+      if (appName !== 'Electron') {
+        execSync(`killall -9 "${appName}" || true`, { stdio: 'ignore' });
+      }
+      // Brief delay to ensure processes are fully terminated
+      await new Promise(resolve => setTimeout(resolve, 500));
+      console.log('[globalSetup] Cleanup complete');
+    } catch {
+      // Ignore errors — processes may not exist
+    }
+  } else if (process.platform === 'win32') {
+    // Windows cleanup
+    try {
+      execSync(`taskkill /F /IM "${appName}.exe" /T || exit 0`, { stdio: 'ignore' });
+      execSync('taskkill /F /IM "electron.exe" /T || exit 0', { stdio: 'ignore' });
+      await new Promise(resolve => setTimeout(resolve, 500));
+    } catch {
+      // Ignore errors
+    }
+  } else {
+    // Linux cleanup
+    try {
+      execSync('pkill -9 -f "electron" || true', { stdio: 'ignore' });
+      if (appName !== 'Electron') {
+        execSync(`pkill -9 -f "${appName}" || true`, { stdio: 'ignore' });
+      }
+      await new Promise(resolve => setTimeout(resolve, 500));
+    } catch {
+      // Ignore errors
+    }
+  }
+}
+```
+
+### Integration with Playwright Config
+
+Update `playwright.config.ts` to use the global setup:
+
+```typescript
+import { PlaywrightTestConfig } from '@playwright/test';
+import path from 'path';
+
+const config: PlaywrightTestConfig = {
+  testDir: './e2e',
+  testMatch: '**/electron.spec.ts',
+  timeout: 60000,
+  retries: 1,
+  workers: 1,
+  
+  // CRITICAL: Global setup runs before all tests
+  globalSetup: path.join(__dirname, 'playwright/globalSetup.ts'),
+  
+  use: {
+    trace: 'on-first-retry',
+    video: 'on-first-retry',
+  },
+};
+
+export default config;
+```
+
+### Environment Variable for App Name
+
+Set `ELECTRON_APP_NAME` to your app's exact name as it appears in the process list:
+
+```bash
+# In your test script (package.json)
+"test:e2e:electron": "ELECTRON_APP_NAME='MyApp' npx playwright test e2e/electron.spec.ts"
+```
+
+### Pre-Test Zombie Detection (test-flow Integration)
+
+The `test-flow` skill checks for zombie processes before starting tests. If zombies are detected:
+
+1. **Warning shown** with count of running processes
+2. **Auto-cleanup offered** if count > 1
+3. **Proceeds after cleanup** or user confirmation
+
+Example output when zombies detected:
+```
+⚠️ ZOMBIE ELECTRON PROCESSES DETECTED
+
+Found 3 Electron-related processes:
+  PID 12345: Electron Helper (Renderer)
+  PID 12346: Electron Helper (GPU)
+  PID 12347: MyApp
+
+[K] Kill all and continue
+[S] Skip cleanup (may cause test failures)
+```
 
 ## Prerequisites
 
