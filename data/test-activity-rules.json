@@ -81,6 +81,52 @@
       "unit": true,
       "reason": "Middleware affects all requests — immediate E2E"
     },
+    "**/cors.ts": {
+      "critics": ["security-critic", "backend-critic-ts"],
+      "e2e": "immediate",
+      "unit": true,
+      "reason": "CORS configuration affects browser security — requires browser verification (curl won't catch CORS issues)"
+    },
+    "**/cors.js": {
+      "critics": ["security-critic", "backend-critic-ts"],
+      "e2e": "immediate",
+      "unit": true,
+      "reason": "CORS configuration affects browser security — requires browser verification (curl won't catch CORS issues)"
+    },
+    "**/*cors*.ts": {
+      "critics": ["security-critic"],
+      "e2e": "immediate",
+      "reason": "CORS-related files affect browser security — requires browser verification"
+    },
+    "**/*cors*.js": {
+      "critics": ["security-critic"],
+      "e2e": "immediate",
+      "reason": "CORS-related files affect browser security — requires browser verification"
+    },
+    "**/headers.ts": {
+      "critics": ["security-critic", "network-critic"],
+      "e2e": "immediate",
+      "unit": true,
+      "reason": "HTTP headers configuration affects browser behavior — immediate E2E"
+    },
+    "**/headers.js": {
+      "critics": ["security-critic", "network-critic"],
+      "e2e": "immediate",
+      "unit": true,
+      "reason": "HTTP headers configuration affects browser behavior — immediate E2E"
+    },
+    "**/security*.ts": {
+      "critics": ["security-critic", "exploit-critic"],
+      "e2e": "immediate",
+      "unit": true,
+      "reason": "Security configuration — immediate E2E"
+    },
+    "**/security*.js": {
+      "critics": ["security-critic", "exploit-critic"],
+      "e2e": "immediate",
+      "unit": true,
+      "reason": "Security configuration — immediate E2E"
+    },
     "**/middleware.ts": {
       "critics": ["security-critic", "network-critic"],
       "e2e": "immediate",

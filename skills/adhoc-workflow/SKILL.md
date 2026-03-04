@@ -55,6 +55,73 @@ Ad-hoc mode now includes a **mandatory Analysis Phase** that generates **Task Sp
 
 ---
 
+## User Summary Detection
+
+> ⛔ **CRITICAL: User summaries accelerate analysis — they do NOT skip verification.**
+>
+> When a user provides context about what they changed or what the fix does, this is helpful input for analysis. It is NOT a substitute for:
+> - Running tests
+> - Browser verification (for UI/CORS/security changes)
+> - Quality checks
+>
+> **Failure behavior:** If you treat a user summary as verification evidence, you are skipping mandatory checks.
+
+### What User Summaries Are
+
+User summaries are helpful context that can:
+
+| Benefit | Example |
+|---------|---------|
+| Accelerate file discovery | "I changed the CORS config in `src/middleware/cors.ts`" |
+| Clarify intent | "This fixes the 403 error on cross-origin requests" |
+| Identify scope | "It's a one-line change to add the missing header" |
+| Suggest verification approach | "You can test it by hitting the API from a different origin" |
+
+### What User Summaries Are NOT
+
+User summaries are NOT verification evidence. They cannot:
+
+| NOT This | Why |
+|----------|-----|
+| Replace browser testing | User may not have tested all scenarios |
+| Confirm CORS works | CORS is browser-enforced — user may have tested with curl |
+| Prove security is correct | Security requires systematic verification |
+| Skip E2E tests | User summary ≠ automated test passing |
+
+### Correct Response to User Summaries
+
+When user provides a summary like "I fixed the CORS issue by adding the header":
+
+```
+✅ CORRECT: 
+"Thanks for the context! I'll use this to focus my analysis on the CORS 
+middleware. Let me run browser verification to confirm the fix works 
+across different origins."
+
+❌ WRONG:
+"Great, since you've confirmed the fix works, I'll just commit it."
+```
+
+### Detection Patterns
+
+Watch for these patterns that indicate user-provided summaries:
+
+| Pattern | Example | Your Response |
+|---------|---------|---------------|
+| "I fixed..." | "I fixed the CORS issue" | Acknowledge, then verify |
+| "The change is..." | "The change is adding X-Custom-Header" | Acknowledge, then verify |
+| "It works now" | "I tested it and it works" | Ask HOW they tested, then verify with Playwright |
+| "Just need to commit" | "Can you just commit this?" | Verify first, then commit |
+
+### CORS-Specific Warning
+
+> ⚠️ **CORS is BROWSER-ENFORCED. curl/wget bypass CORS entirely.**
+>
+> If user says "I tested with curl and it works" — this is NOT CORS verification.
+> CORS headers are only enforced by browsers. You MUST use Playwright to verify CORS fixes.
+
+---
+
 ## Task Specs vs PRDs
 
 Task Specs follow the **same lifecycle as PRDs** but in a parallel folder structure:

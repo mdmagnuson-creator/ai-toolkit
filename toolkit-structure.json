@@ -1,7 +1,7 @@
 {
   "$schema": "https://opencode.ai/schemas/toolkit-structure.json",
   "version": "1.0.0",
-  "generatedAt": "2026-03-04T01:53:00Z",
+  "generatedAt": "2026-03-04T02:30:00Z",
   "repository": "https://github.com/mdmagnuson-creator/yo-go",
   "agents": {
     "total": 64,
@@ -944,8 +944,26 @@
           {
             "type": "fix",
             "scope": "builder",
-            "description": "make Analysis Gate compaction-resilient with mandatory state checkpoint before @developer delegation",
+            "description": "add CORS/headers/security file patterns to test-activity-rules.json for e2e: immediate",
             "hash": "pending"
+          },
+          {
+            "type": "fix",
+            "scope": "builder",
+            "description": "add 'Never Use curl/wget for Browser Verification' section prohibiting curl for CORS verification",
+            "hash": "pending"
+          },
+          {
+            "type": "fix",
+            "scope": "adhoc-workflow",
+            "description": "add 'User Summary Detection' section clarifying summaries accelerate analysis but don't skip verification",
+            "hash": "pending"
+          },
+          {
+            "type": "fix",
+            "scope": "builder",
+            "description": "make Analysis Gate compaction-resilient with mandatory state checkpoint before @developer delegation",
+            "hash": "3458200"
           },
           {
             "type": "feat",

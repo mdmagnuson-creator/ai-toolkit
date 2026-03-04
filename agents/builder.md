@@ -1163,6 +1163,36 @@ Users can override verification requirements by typing "mark complete without ve
 
 See `test-flow` skill → "UI Verification" for full verification flow.
 
+### Never Use curl/wget for Browser Verification
+
+> ⛔ **CRITICAL: Never use `curl`, `wget`, or HTTP client libraries to verify browser-related behavior.**
+>
+> **Trigger:** Verifying any change that affects browser behavior (CORS, cookies, headers, API responses consumed by browsers).
+>
+> **Failure behavior:** Using curl for browser verification produces false positives. CORS, CSP, cookie policies, and many security features are enforced by browsers ONLY — curl bypasses all of them.
+
+| Tool | What It Tests | What It Misses |
+|------|---------------|----------------|
+| `curl` | Server responds with 200 | CORS blocks, cookie policies, CSP, browser fetch behavior |
+| `wget` | File downloads successfully | Same as curl |
+| HTTP libraries | API returns correct data | Same as curl |
+| **Playwright** | Full browser behavior | Nothing — this is the correct tool |
+
+**Especially for CORS:** A `curl -I` request will succeed even when browsers are blocked. CORS is enforced by browsers, not servers. The server sends headers, but only browsers actually block requests when headers are missing or wrong.
+
+**Always delegate browser verification to Playwright via the test-flow skill.**
+
+#### What Requires Browser Verification
+
+| Change Type | Why Browser Required |
+|-------------|---------------------|
+| CORS configuration | Browsers enforce CORS, curl doesn't |
+| Cookie settings (SameSite, Secure, HttpOnly) | Browsers enforce cookie policies |
+| CSP headers | Browsers enforce Content-Security-Policy |
+| Authentication flows | Redirects, cookies, session handling |
+| API responses consumed by UI | Browser fetch behavior differs from curl |
+| Any `**/cors*`, `**/headers*`, `**/security*` file | Security features are browser-enforced |
+
 ### Prerequisite Failure Detection
 
 > 🎯 **When verification fails, classify the failure as PREREQUISITE vs FEATURE.**
