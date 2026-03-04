@@ -1206,7 +1206,12 @@ git commit -m "feat: Add loading spinner to submit button
 Task-Spec: task-2026-03-01-add-spinner"
 ```
 
-### Step 2: Push and PR (Follow Project Settings)
+### Step 2: Push and PR (Git Completion Workflow)
+
+> ⚓ **AGENTS.md: Git Completion Workflow**
+>
+> This step follows the canonical Git Completion Workflow defined in AGENTS.md.
+> Both PRD mode and ad-hoc mode use the same workflow for consistency.
 
 > ⛔ **CRITICAL: Follow `git.agentWorkflow` settings strictly.**
 >
@@ -1214,7 +1219,7 @@ Task-Spec: task-2026-03-01-add-spinner"
 >
 > **Check:** Read `project.json` → `git.agentWorkflow` for `pushTo`, `createPrTo`, `requiresHumanApproval`.
 >
-> **Failure behavior:** Deviating from configured settings violates project constraints.
+> **Failure behavior:** If `git.agentWorkflow` is not defined, STOP with Missing Config Error (see AGENTS.md).
 
 **Flow based on project settings:**
 

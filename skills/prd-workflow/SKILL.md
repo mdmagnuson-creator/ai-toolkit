@@ -615,35 +615,83 @@ Required report sections:
 
 Always reference this report path in final Builder completion output.
 
-### Step 4: Push/PR Behavior by Git Mode
+### Step 4: Push and PR (Git Completion Workflow)
 
-If `trunk + branchless`:
+> ⚓ **AGENTS.md: Git Completion Workflow**
+>
+> This step follows the canonical Git Completion Workflow defined in AGENTS.md.
+> Both PRD mode and ad-hoc mode use the same workflow for consistency.
 
-```bash
-git push origin <default-branch>
+**4a. Validate Configuration (Fail Fast)**
+
+Read `project.json` → `git.agentWorkflow`:
+
+```json
+{
+  "git": {
+    "agentWorkflow": {
+      "pushTo": "staging",
+      "createPrTo": "main",
+      "requiresHumanApproval": ["main", "production"]
+    }
+  }
+}
 ```
 
-- Skip PR creation and merge queue by default.
-- Update PRD status directly toward completion flow (`awaiting_e2e` or `completed` based on deferred tests).
+**If `git.agentWorkflow` is not defined:** STOP with Missing Config Error (see AGENTS.md).
 
-If not branchless trunk mode:
+**4b. Push to Configured Branch**
+
+Push to the `pushTo` branch:
 
 ```bash
-git push -u origin <branch-name>
+git push origin {git.agentWorkflow.pushTo}
 ```
 
-### Step 5: Create PR (non-branchless mode)
+**4c. Prompt for PR Creation**
 
-Create PR with `gh pr create` (not draft — E2E already passed):
-- Title: `feat: [description from prd.json]`
-- Body: List of user stories with status
+**If `createPrTo` differs from `pushTo`**, prompt the user:
+
+```
+═══════════════════════════════════════════════════════════════════════
+                         PUSH COMPLETE
+═══════════════════════════════════════════════════════════════════════
+
+✅ PRD "{prd-name}" pushed to origin/{pushTo}
+
+Your workflow is configured to create PRs to '{createPrTo}'.
+
+[P] Create PR to {createPrTo}
+[S] Stay on {pushTo} (no PR yet)
+
+> _
+═══════════════════════════════════════════════════════════════════════
+```
+
+**If `createPrTo` equals `pushTo`**, skip PR creation (work is already on target branch).
+
+### Step 5: Create PR (if user chooses [P])
+
+Create the PR:
+
+```bash
+gh pr create --base {createPrTo} --title "feat: {description from prd.json}" --body "{PR body with story list}"
+```
 
 **Update registry status to `pr_open`:**
 - Set `status: "pr_open"`
 - Store `prNumber` and `prUrl` from `gh pr create` output
-- Report: "✅ PR created: [URL]. Status: `pr_open`"
 
-### Step 6: Add to Merge Queue (if enabled, non-branchless mode)
+**Check if target branch requires human approval:**
+
+| `createPrTo` in `requiresHumanApproval`? | Action |
+|------------------------------------------|--------|
+| Yes | Report "✅ PR #{number} created. Human approval required to merge." |
+| No | Proceed to merge handling (Step 6) |
+
+### Step 6: Handle Merge (if auto-merge allowed)
+
+**If `createPrTo` NOT in `requiresHumanApproval`:**
 
 Check `docs/project.json` → `agents.mergeQueue.enabled` (default: true).
 
@@ -678,25 +726,24 @@ Check `docs/project.json` → `agents.mergeQueue.enabled` (default: true).
 
 5. Add to `queue` array and save `merge-queue.json`
 
-6. Report queue status
+6. Report: "PR #{number} added to merge queue."
 
 **If merge queue is disabled:**
-- Skip queue integration
-- Fall back to legacy behavior (step 7)
 
-### Step 7: Handle Immediate Merge (legacy, non-branchless mode)
+Merge immediately after CI passes (or call @felix for CI wait).
 
-Read `autoMerge` from `docs/project.json` → `agents.autoMerge`:
+### Step 7: Report Completion and Update Session
 
-| Setting | Behavior |
-|---------|----------|
-| `"off"` (default) | Report PR URL, done. Human merges later. |
-| `"on-e2e-pass"` | E2E passed, so merge immediately |
-| `"on-ci-pass"` | Run @felix to wait for GitHub CI, then merge |
+Report the final state:
 
-### Step 8: Update Session Lock
+| Outcome | Message |
+|---------|---------|
+| Pushed only (no PR) | "Changes pushed to {pushTo}. Create PR when ready. Status: `in_progress`" |
+| PR created, awaiting human | "PR #{number} created. Human approval required to merge. Status: `pr_open`" |
+| PR created and merged | "PR #{number} merged to {createPrTo}. Status: `completed` (pending cleanup)" |
+| PR created, in queue | "PR #{number} added to merge queue. Status: `pr_open`" |
 
-Update to status "completed" (or "awaiting-merge" if autoMerge is off)
+Update session lock to appropriate status based on outcome.
 
 ---
 

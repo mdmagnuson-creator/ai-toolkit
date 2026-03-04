@@ -623,7 +623,7 @@
         },
         "agentWorkflow": {
           "type": "object",
-          "description": "How agents interact with git branches. Branches in requiresHumanApproval are BLOCKED for all agent operations (push, PR, merge). Default cascade: pushTo → workBranch → defaultBranch.",
+          "description": "How agents interact with git branches. See AGENTS.md 'Git Completion Workflow' for the canonical workflow. PRs to requiresHumanApproval branches are allowed but auto-merge is blocked. Default cascade: pushTo → workBranch → defaultBranch.",
           "properties": {
             "workBranch": {
               "type": "string",
@@ -640,7 +640,7 @@
             "requiresHumanApproval": {
               "type": "array",
               "items": { "type": "string" },
-              "description": "Branches that are BLOCKED for all agent operations. Agents cannot push to, create PRs targeting, or auto-merge to these branches. Use for production branches that require human review."
+              "description": "Branches requiring human approval before merge. Agents CAN create PRs to these branches, but CANNOT auto-merge. Direct push is blocked. Use for production/main branches that need human review before changes land."
             }
           }
         }
