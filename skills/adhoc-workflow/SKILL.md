@@ -1206,9 +1206,48 @@ git commit -m "feat: Add loading spinner to submit button
 Task-Spec: task-2026-03-01-add-spinner"
 ```
 
-### Step 2: Push and Merge
+### Step 2: Push and PR (Follow Project Settings)
 
-Follow existing merge/push flow based on git workflow mode.
+> ⛔ **CRITICAL: Follow `git.agentWorkflow` settings strictly.**
+>
+> **Trigger:** After commit, before push/PR operations.
+>
+> **Check:** Read `project.json` → `git.agentWorkflow` for `pushTo`, `createPrTo`, `requiresHumanApproval`.
+>
+> **Failure behavior:** Deviating from configured settings violates project constraints.
+
+**Flow based on project settings:**
+
+1. **Push to configured `pushTo` branch:**
+   ```bash
+   git push origin {git.agentWorkflow.pushTo}
+   ```
+
+2. **If `createPrTo` differs from `pushTo`, offer to create PR:**
+   ```
+   ═══════════════════════════════════════════════════════════════════════
+                          PUSH COMPLETE
+   ═══════════════════════════════════════════════════════════════════════
+   
+   ✅ Pushed to origin/{pushTo}
+   
+   Your workflow is configured to create PRs to '{createPrTo}'.
+   
+   [P] Create PR to {createPrTo}
+   [S] Stay on {pushTo} (no PR yet)
+   
+   > _
+   ═══════════════════════════════════════════════════════════════════════
+   ```
+
+3. **If user chooses [P] and `createPrTo` is in `requiresHumanApproval`:**
+   - Create the PR: `gh pr create --base {createPrTo}`
+   - Do NOT auto-merge
+   - Report: "PR created. Human approval required to merge."
+
+4. **If user chooses [S]:**
+   - Stay on current branch
+   - Report: "Changes pushed to {pushTo}. Create PR when ready."
 
 ### Step 3: Cleanup
 
@@ -1329,13 +1368,20 @@ User: C
 ✅ Committed: feat: Add loading spinner to submit button
 ✅ Archived to docs/tasks/completed/
 
-Push to remote? [Y/n]
+Pushing to origin/staging (configured pushTo)...
+✅ Pushed to origin/staging
+
+Your workflow is configured to create PRs to 'main'.
+
+[P] Create PR to main
+[S] Stay on staging (no PR yet)
 
 > _
 
-User: Y
+User: P
 
-✅ Pushed to origin/main
+✅ PR #5 created: staging → main
+⚠️ Human approval required to merge (main is protected)
 ✅ Task complete!
 ```
 

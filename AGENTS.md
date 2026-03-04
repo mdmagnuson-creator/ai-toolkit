@@ -136,12 +136,18 @@ Minimum checks:
 **Before `gh pr create --base [branch]`:**
 1. Read `project.json` → `git.agentWorkflow`
 2. If `git.agentWorkflow` not defined: BLOCK (Missing Config Error)
-3. If `--base` branch in `requiresHumanApproval`: BLOCK (Protected Branch Error)
-4. If `--base` branch ≠ `createPrTo`: BLOCK (Wrong Target Error)
+3. If `--base` branch ≠ `createPrTo`: BLOCK (Wrong Target Error)
+4. If `--base` branch in `requiresHumanApproval`: ALLOW PR creation, but do NOT auto-merge (see below)
 5. Proceed only if all checks pass
 
-**Before auto-merge:**
+**Before auto-merge (`gh pr merge`):**
 1. If target branch in `requiresHumanApproval`: BLOCK (human must merge)
+2. Report: "PR created. Human approval required to merge."
+
+> ⚠️ **Important distinction:**
+> - **Direct push** to protected branch → BLOCKED
+> - **Create PR** to protected branch → ALLOWED
+> - **Auto-merge PR** to protected branch → BLOCKED (human must approve and merge)
 
 ### Default Cascade
 
