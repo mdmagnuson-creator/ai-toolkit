@@ -179,33 +179,54 @@ export default async function globalSetup() {
 
 ### 5. Test Documentation Sync
 
-After any behavior change, Builder MUST search for and update related test comments and docstrings.
+After ANY code change, Builder MUST search for and update related test comments and docstrings. This runs **before commit**.
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│ Behavior Change Implemented                                 │
+│ Code Change Ready to Commit                                 │
 ├─────────────────────────────────────────────────────────────┤
-│ 1. Identify keywords describing the OLD behavior            │
-│ 2. Search test files for those keywords:                    │
-│    grep -rn "<old behavior>" tests/ e2e/ --include="*.ts"   │
-│ 3. Update all matching comments and docstrings              │
-│ 4. Include updates in the SAME commit as code changes       │
-│ 5. Verify no references to old behavior remain              │
+│ 1. Analyze diff to extract "old behavior" keywords:         │
+│    - Removed/changed variable names                         │
+│    - Removed/changed string literals                        │
+│    - Removed/changed comments in source                     │
+│    - Changed function/component names                       │
+│                                                             │
+│ 2. Expand keywords semantically:                            │
+│    showQRCode → "QR code", "QR-code", "qrcode", "device auth"│
+│                                                             │
+│ 3. Search test files:                                       │
+│    grep -rn "<keywords>" tests/ e2e/ --include="*.ts"       │
+│                                                             │
+│ 4. Handle matches based on count:                           │
+│    0 matches    → Proceed to commit                         │
+│    1-5 matches  → Auto-update, include in commit            │
+│    6-15 matches → Show grouped by file, ask "Update all?"   │
+│    16+ matches  → Narrow search or ask user which files     │
+│                                                             │
+│ 5. Prioritize comments in files already touched this change │
+│                                                             │
+│ 6. Verify no stale references remain, then commit           │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-**Search patterns by change type:**
+**Keyword extraction from diff:**
 
-| Change Type | Search Pattern |
-|-------------|----------------|
-| Auth behavior | `grep -rn "default.*auth\|auth.*default" e2e/ tests/` |
-| UI defaults | `grep -rn "shows.*by default\|default.*shows\|initially shows" e2e/ tests/` |
-| Component rendering | `grep -rn "<ComponentName>.*default\|renders.*<ComponentName>" e2e/ tests/` |
+| Diff Element | Extracted Keywords |
+|--------------|-------------------|
+| Removed `showQRCode()` | "QR code", "QR", "qrcode" |
+| Removed `"Scan QR code"` | "Scan QR code", "scan" |
+| Changed `DeviceAuth` → `EmailAuth` | "device auth", "DeviceAuth" |
+| Removed comment `// QR is default` | "QR", "default" |
 
-**Verification before completion:**
+**Safety rules:**
+- Never auto-update comments outside `tests/` or `e2e/`
+- Never update comments in `node_modules/` or generated files
+- If match looks unrelated (fuzzy), skip or ask
+
+**Verification before commit:**
 ```bash
 # No references to old behavior should remain
-grep -rn "<old behavior description>" tests/ e2e/ | wc -l
+grep -rn "<old behavior keywords>" tests/ e2e/ | wc -l
 # Should return 0
 ```
 
@@ -265,16 +286,19 @@ grep -rn "<old behavior description>" tests/ e2e/ | wc -l
 
 ### Story 5: Test Documentation Sync
 **As** a user  
-**When** Builder changes application behavior  
+**When** Builder makes any code change  
 **I should** have all related test comments and docstrings updated automatically  
 **So that** test documentation stays accurate and useful
 
 **Acceptance Criteria:**
-- [ ] After behavior changes, Builder searches for related test comments
-- [ ] All matching comments/docstrings are updated to reflect new behavior
-- [ ] Updates included in same commit as code changes (not separate "docs" commit)
-- [ ] Verification grep confirms no stale references remain
-- [ ] Search patterns documented for common change types (auth, UI defaults, components)
+- [ ] Runs before commit (not after implementation)
+- [ ] Keywords extracted automatically from diff (removed/changed names, literals, comments)
+- [ ] Keywords expanded semantically (e.g., `showQRCode` → "QR code", "QR-code", "qrcode")
+- [ ] Match handling: 0=proceed, 1-5=auto-update, 6-15=ask, 16+=narrow search
+- [ ] Prioritizes files already touched in this change
+- [ ] Never updates outside `tests/` or `e2e/`, never touches `node_modules/`
+- [ ] Verification grep confirms no stale references remain before commit
+- [ ] Applies to ALL code changes, not just UI/behavior changes
 
 ---
 
@@ -321,6 +345,12 @@ grep -rn "<old behavior description>" tests/ e2e/ | wc -l
    - Automatic, not opt-in
    - App is started automatically if not running
    - Applies to ad-hoc mode only (not PRD mode)
+
+5. **Test documentation sync configuration**
+   - **When:** Before commit (not after implementation)
+   - **Keyword detection:** Diff analysis + semantic expansion (auto, don't ask user)
+   - **Match thresholds:** 0=proceed, 1-5=auto-update, 6-15=confirm, 16+=narrow
+   - **Scope:** ALL code changes (not just UI/behavior changes)
 
 ---
 
