@@ -294,6 +294,116 @@ Run analysis with visible progress indicator:
 
 If analysis times out, show what was found with note: "⚠️ Analysis may be incomplete (timed out)"
 
+### Step 0.1b: Playwright Analysis Confirmation (MANDATORY)
+
+> ⛔ **CRITICAL: Code analysis MUST be confirmed via Playwright probe before showing the dashboard.**
+>
+> Code-only analysis can miss runtime state, CSS inheritance, dynamic rendering, and route guards.
+> Playwright confirmation catches discrepancies between what the code *says* and what *actually* renders.
+>
+> **Trigger:** After Step 0.1 code analysis completes, before Step 0.2 dashboard.
+>
+> **Evidence:** Probe results MUST appear in the ANALYSIS COMPLETE dashboard.
+>
+> **Failure behavior:** If proceeding to Step 0.2 without running the probe (when applicable), STOP and run the probe first.
+
+**After Step 0.1 code analysis and Step 0.0a screenshot, run the Playwright probe:**
+
+1. **Generate probe assertions** from code analysis findings:
+
+   For each key conclusion in the analysis, create a probe assertion:
+
+   | Analysis Conclusion | Probe Assertion |
+   |---------------------|-----------------|
+   | "Button exists at /checkout" | `page: "/checkout", selector: "button[type='submit']", expect: "visible"` |
+   | "No spinner currently shown" | `page: "/checkout", selector: ".spinner", expect: "absent"` |
+   | "Form has 3 fields" | `page: "/checkout", selector: "input, select, textarea", expect: "exists"` |
+   | "Component renders at /dashboard" | `page: "/dashboard", selector: "[data-testid='component']", expect: "visible"` |
+
+   **Assertion generation rules:**
+   - Generate 2-5 assertions per affected page (keep it focused)
+   - Prioritize assertions about elements the implementation will modify
+   - Include at least one "existence" check for the primary target element
+   - Include at least one "absence" check for the feature being added (confirms it doesn't exist yet)
+
+2. **Build probe spec and invoke `@e2e-playwright` with `mode: "analysis-probe"`:**
+
+   ```yaml
+   <probe-spec>
+     mode: analysis-probe
+     baseUrl: "http://localhost:{devPort}"
+     timeout: 5000
+     assertions:
+       - page: "/checkout"
+         description: "Submit button exists"
+         checks:
+           - selector: "button[type='submit']"
+             expect: "visible"
+           - selector: ".spinner"
+             expect: "absent"
+             description: "No loading indicator yet"
+   </probe-spec>
+   ```
+
+   See `test-ui-verification` skill → "Analysis Probe Mode" for full probe specification format, assertion types, and execution flow.
+
+3. **Process probe results:**
+
+   | Probe Status | Action |
+   |-------------|--------|
+   | `confirmed` | Proceed to Step 0.2 with `✅ Playwright-confirmed` badge |
+   | `partially-confirmed` | Update analysis with corrections from discrepancies, note in dashboard |
+   | `contradicted` | **Re-analyze:** Revise code analysis using probe data, lower confidence to MEDIUM minimum |
+   | `skipped` | Proceed to Step 0.2 with `➖ Probe skipped: [reason]` note |
+
+4. **On contradiction — mandatory re-analysis:**
+
+   When probe results contradict the code analysis:
+
+   ```
+   ═══════════════════════════════════════════════════════════════════════
+                        ⚠️ ANALYSIS CONTRADICTED
+   ═══════════════════════════════════════════════════════════════════════
+
+   Playwright probe found discrepancies with code analysis:
+
+     ❌ Expected button[type='submit'] visible at /checkout
+        Actual: not found (page renders a link instead)
+
+     ❌ Expected .form-container visible at /checkout
+        Actual: hidden (display: none, gated by feature flag)
+
+   Revising analysis with probe data...
+   ═══════════════════════════════════════════════════════════════════════
+   ```
+
+   After revision:
+   - Confidence is lowered to MEDIUM (minimum), forcing clarifying questions
+   - The revised analysis replaces the original in the dashboard
+   - Discrepancies are listed in a new `🔍 PROBE RESULTS` section
+
+5. **Progress indicator:**
+
+   Show probe progress inline with the analysis progress:
+
+   ```
+   ═══════════════════════════════════════════════════════════════════════
+                            ANALYZING REQUEST
+   ═══════════════════════════════════════════════════════════════════════
+
+   "Add loading spinner to submit button"
+
+   ⏳ Scanning imports...
+   ⏳ Identifying affected files...
+   ⏳ Checking for downstream impacts...
+   ⏳ Estimating scope...
+   ✅ Code analysis complete
+   ⏳ Running Playwright probe (confirming analysis)...
+   ✅ Probe confirmed: 3/3 assertions match
+
+   ═══════════════════════════════════════════════════════════════════════
+   ```
+
 ### Step 0.2: Show Analysis Dashboard
 
 Display results with progressive disclosure. **The pre-analysis screenshot from Step 0.0a MUST be attached.**
@@ -308,9 +418,9 @@ Display results with progressive disclosure. **The pre-analysis screenshot from 
 
 📋 REQUEST: "Add loading spinner to submit button"
 
-📊 UNDERSTANDING                                    Confidence: HIGH
+📊 UNDERSTANDING                          Confidence: HIGH ✅ Playwright-confirmed
 ───────────────────────────────────────────────────────────────────────
-Based on visual + code analysis:
+Based on visual + code + Playwright probe analysis:
 - The submit button is currently a blue primary button (visible in screenshot)
 - No loading indicator exists — button stays static during submission
 - Existing Spinner component available in design system
@@ -319,6 +429,12 @@ Proposed:
 - Show spinner icon during form submission
 - Disable button while loading to prevent double-submit
 - Use existing Spinner component from design system
+
+🔍 PROBE RESULTS                                              3/3 ✅
+───────────────────────────────────────────────────────────────────────
+  ✅ /checkout → button[type='submit'] visible (confirmed)
+  ✅ /checkout → .spinner absent (confirmed: no spinner yet)
+  ✅ /checkout → button[type='submit'] enabled (confirmed)
 
 🎯 SCOPE: Small (2 files, no breaking changes)
 
@@ -357,6 +473,20 @@ TSK-004: Add unit tests
 > - Show error reason (e.g., "Dev server not running", "Remote URL unreachable")
 > - Offer options: `[R] Retry screenshot`, `[S] Skip screenshot (not recommended)`, `[C] Cancel`
 > - If user chooses `[S]`, proceed but note "⚠️ Analysis based on code only — visual state not verified"
+
+> ⚠️ **The Playwright probe is NOT optional for UI projects.** If probe was skipped:
+> - Show skip reason in dashboard (e.g., "no-ui project", "dev server not reachable")
+> - If probe was skipped due to a fixable issue (dev server), offer `[R] Retry probe`
+> - See `test-ui-verification` skill → "Skip Conditions" for valid skip reasons
+
+**Probe results display in dashboard:**
+
+| Probe Status | Dashboard Badge | Probe Section |
+|-------------|-----------------|---------------|
+| `confirmed` | `Confidence: HIGH ✅ Playwright-confirmed` | `🔍 PROBE RESULTS  N/N ✅` |
+| `partially-confirmed` | `Confidence: HIGH ⚠️ Playwright: N/M confirmed` | `🔍 PROBE RESULTS  N/M ⚠️` with discrepancies listed |
+| `contradicted` | `Confidence: MEDIUM 🔴 Playwright contradicted` | `🔍 PROBE RESULTS  N/M 🔴` with contradictions expanded |
+| `skipped` | `Confidence: [original] ➖ Probe skipped` | `🔍 PROBE: ➖ Skipped ([reason])` |
 
 **Dashboard rules:**
 - **Confidence:** HIGH (clear request) / MEDIUM (some ambiguity) / LOW (needs clarification)
@@ -1353,7 +1483,9 @@ Read from `docs/project.json`:
   "agents": {
     "prdRecommendationThreshold": "medium",
     "analysisTimeoutMs": 10000,
-    "taskSpecEnabled": true
+    "taskSpecEnabled": true,
+    "analysisProbe": true,
+    "analysisProbeTimeoutMs": 5000
   }
 }
 ```
@@ -1363,6 +1495,8 @@ Read from `docs/project.json`:
 | `prdRecommendationThreshold` | `"medium"` | Scope at which PRD is recommended: `small`, `medium`, `large` |
 | `analysisTimeoutMs` | `10000` | Max analysis time in milliseconds |
 | `taskSpecEnabled` | `true` | Set `false` for legacy behavior (not recommended) |
+| `analysisProbe` | `true` | Enable Playwright analysis probe during Phase 0 |
+| `analysisProbeTimeoutMs` | `5000` | Timeout per page for Playwright probe |
 
 ---
 
@@ -1379,6 +1513,9 @@ Builder:
 ⏳ Scanning imports...
 ⏳ Identifying affected files...
 ⏳ Estimating scope...
+✅ Code analysis complete
+⏳ Running Playwright probe (confirming analysis)...
+✅ Probe confirmed: 3/3 assertions match
 
 ═══════════════════════════════════════════════════════════════════════
                          ANALYSIS COMPLETE
@@ -1386,8 +1523,13 @@ Builder:
 
 📋 REQUEST: "Add loading spinner to submit button"
 
-📊 UNDERSTANDING                                    Confidence: HIGH
+📊 UNDERSTANDING                          Confidence: HIGH ✅ Playwright-confirmed
 Add visual loading feedback to SubmitButton component.
+
+🔍 PROBE RESULTS                                              3/3 ✅
+  ✅ /checkout → button[type='submit'] visible
+  ✅ /checkout → .spinner absent (no spinner yet)
+  ✅ /checkout → button[type='submit'] enabled
 
 🎯 SCOPE: Small (2 files, no breaking changes)
 

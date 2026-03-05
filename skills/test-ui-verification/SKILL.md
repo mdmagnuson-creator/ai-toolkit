@@ -342,3 +342,227 @@ For persistently flaky tests:
 1. Move test file to `tests/quarantine/`
 2. Add entry to `test-debt.json`
 3. Quarantined tests excluded from CI but tracked for follow-up
+
+---
+
+## Analysis Probe Mode (Pre-Implementation Verification)
+
+> 🎯 **Use this mode during ad-hoc Analysis Gate (Phase 0) to confirm code analysis conclusions against live app state.**
+>
+> Analysis probes are lightweight, fast, ephemeral checks — NOT full E2E tests.
+> They verify that the elements, pages, and states referenced in the analysis actually exist at runtime.
+
+### When to Use
+
+This mode is invoked by Builder during the ad-hoc workflow **Step 0.1b** — after code analysis (Step 0.1) and before showing the ANALYSIS COMPLETE dashboard (Step 0.2).
+
+**Trigger:** `@e2e-playwright` with `mode: "analysis-probe"`
+
+### Configuration
+
+Analysis probe mode uses project-level verification settings but with lighter constraints:
+
+| Setting | Value | Why |
+|---------|-------|-----|
+| `timeout` | 5 seconds per page | Probes must be fast — analysis is time-boxed |
+| `testGeneration` | None — probes are ephemeral | No files saved to `testDir` |
+| `screenshots` | Optional — only on contradiction | Save screenshot when probe contradicts analysis |
+| `retries` | 0 | Probes are one-shot; failure = useful signal |
+
+### Probe Specification Format
+
+Builder generates a probe specification from Step 0.1 code analysis and passes it to `@e2e-playwright`:
+
+```yaml
+<probe-spec>
+  mode: analysis-probe
+  baseUrl: "http://localhost:{devPort}"
+  timeout: 5000
+  assertions:
+    - page: "/checkout"
+      description: "Submit button exists on checkout page"
+      checks:
+        - selector: "[data-testid='submit-btn'], button[type='submit']"
+          expect: "visible"
+        - selector: ".spinner, [data-testid='loading-spinner']"
+          expect: "absent"
+          description: "No loading indicator currently exists"
+    - page: "/checkout"
+      description: "Form is interactive"
+      checks:
+        - selector: "button[type='submit']"
+          expect: "enabled"
+</probe-spec>
+```
+
+### Probe Assertion Types
+
+| Expect Value | What It Checks | Passes When |
+|-------------|----------------|-------------|
+| `visible` | Element exists and is visible | `element.isVisible() === true` |
+| `absent` | Element does not exist or is hidden | `element.count() === 0` or `!element.isVisible()` |
+| `enabled` | Element exists and is not disabled | `element.isEnabled() === true` |
+| `disabled` | Element exists and is disabled | `element.isEnabled() === false` |
+| `text-contains:{value}` | Element contains specific text | `element.textContent().includes(value)` |
+| `exists` | Element exists in DOM (visible or not) | `element.count() > 0` |
+
+### Probe Execution Flow
+
+```
+Builder passes probe-spec to @e2e-playwright
+    │
+    ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│ STEP 1: Validate probe spec                                          │
+│   • Ensure baseUrl is reachable                                      │
+│   • Validate assertion format                                        │
+│   • If baseUrl unreachable → return { status: "skipped",             │
+│     reason: "Dev server not reachable" }                             │
+└─────────────────────────────────────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│ STEP 2: Execute probes (5s timeout per page)                         │
+│                                                                     │
+│ For each page in assertions:                                         │
+│   1. Navigate to page                                                │
+│   2. Wait for networkidle (max 3s)                                   │
+│   3. Run each check against the DOM                                  │
+│   4. Record result: { match: true/false, actual: "..." }            │
+│                                                                     │
+│ If page navigation fails → record as contradiction                   │
+│ If timeout → record as { match: false, actual: "timeout" }          │
+└─────────────────────────────────────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│ STEP 3: Aggregate results                                            │
+│                                                                     │
+│ overallStatus:                                                       │
+│   • ALL assertions match → "confirmed"                               │
+│   • ≥50% match → "partially-confirmed"                               │
+│   • <50% match → "contradicted"                                      │
+│                                                                     │
+│ If "contradicted": capture screenshot of contradicting page          │
+└─────────────────────────────────────────────────────────────────────┘
+    │
+    ▼
+Return ProbeResult to Builder
+```
+
+### Probe Result Format
+
+```typescript
+interface ProbeResult {
+  status: "confirmed" | "partially-confirmed" | "contradicted" | "skipped";
+  reason?: string;
+  assertions: ProbeAssertionResult[];
+  discrepancies: ProbeDiscrepancy[];
+  screenshotsCaptured?: string[];
+  executionTimeMs: number;
+}
+
+interface ProbeAssertionResult {
+  page: string;
+  description: string;
+  selector: string;
+  expected: string;
+  actual: string;
+  match: boolean;
+}
+
+interface ProbeDiscrepancy {
+  page: string;
+  description: string;
+  expected: string;
+  actual: string;
+  impact: "analysis-invalid" | "analysis-incomplete" | "minor";
+}
+```
+
+### How Builder Uses Probe Results
+
+| Probe Status | Effect on Analysis | Dashboard Display |
+|-------------|-------------------|-------------------|
+| `confirmed` | Analysis proceeds as-is | `Confidence: HIGH ✅ Playwright-confirmed` |
+| `partially-confirmed` | Analysis updated with corrections; confidence may remain or lower | `Confidence: HIGH ⚠️ Playwright: N/M assertions confirmed` |
+| `contradicted` | Analysis MUST be revised; confidence lowered to MEDIUM minimum | `Confidence: MEDIUM 🔴 Playwright contradicted analysis` |
+| `skipped` | Analysis proceeds without probe (note shown) | `Confidence: [original] ➖ Playwright probe skipped: [reason]` |
+
+### Confidence Impact Rules
+
+> ⛔ **Probe contradictions ALWAYS lower confidence.**
+
+| Original Confidence | Probe Status | Resulting Confidence |
+|---------------------|-------------|---------------------|
+| HIGH | `confirmed` | HIGH |
+| HIGH | `partially-confirmed` | HIGH (if discrepancies are `minor`) or MEDIUM |
+| HIGH | `contradicted` | MEDIUM (forces clarifying questions) |
+| MEDIUM | `confirmed` | MEDIUM (probe alone cannot raise confidence) |
+| MEDIUM | `contradicted` | LOW |
+| LOW | any | LOW (already at minimum) |
+
+### Skip Conditions
+
+Probes are **skipped** (not failed) when:
+
+| Condition | Skip Reason | Dashboard Note |
+|-----------|-------------|----------------|
+| `agents.verification.mode: "no-ui"` | Project has no UI | `➖ Probe skipped: no-ui project` |
+| Dev server unreachable | Cannot probe without running app | `➖ Probe skipped: dev server not reachable` |
+| No page assertions generated | Analysis is purely backend | `➖ Probe skipped: no UI assertions to verify` |
+| `project.json` → `agents.analysisProbe: false` | User opted out | `➖ Probe skipped: disabled in project.json` |
+
+**Important:** When probes are skipped, analysis proceeds normally — skipping is NOT a failure. The probe is an enhancement that catches discrepancies when available.
+
+### Project Configuration
+
+Projects can configure probe behavior in `project.json`:
+
+```json
+{
+  "agents": {
+    "analysisProbe": true,
+    "analysisProbeTimeoutMs": 5000
+  }
+}
+```
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `analysisProbe` | `true` | Enable/disable analysis probes |
+| `analysisProbeTimeoutMs` | `5000` | Timeout per page probe in milliseconds |
+
+### Integration with Authentication
+
+If the project has authentication configured (`project.json` → `authentication`):
+
+1. **Public pages** (login, marketing) → Probe directly, no auth needed
+2. **Authenticated pages** (dashboard, settings) → Use headless auth if configured, otherwise skip with note:
+   ```
+   ➖ Probe skipped for /dashboard: requires authentication (headless auth not configured)
+   ```
+3. **Mixed** → Probe public pages, skip authenticated pages with note
+
+### Example Probe Flow
+
+```
+Builder (after code analysis):
+  "Analysis says: Submit button exists at /checkout, no spinner present"
+
+Builder generates probe-spec:
+  assertions:
+    - page: "/checkout"
+      checks:
+        - selector: "button[type='submit']"  expect: "visible"
+        - selector: ".spinner"               expect: "absent"
+
+@e2e-playwright runs probe:
+  ✅ button[type='submit'] → visible (match)
+  ✅ .spinner → absent (match)
+
+Result: { status: "confirmed", assertions: 2/2 match }
+
+Builder shows dashboard:
+  📊 UNDERSTANDING                          Confidence: HIGH ✅ Playwright-confirmed
+```
