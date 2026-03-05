@@ -1310,12 +1310,26 @@ For projects with authentication enabled:
 ## Authentication Configuration Check (MANDATORY)
 
 > **Builder: Load `auth-config-check` skill before any auth-dependent task.**
+>
+> ⛔ **AUTONOMOUS FIRST: Never ask the user for credentials or auth help
+> unless all autonomous approaches have been exhausted.**
+> Builder successfully handles auth in most sessions — asking users
+> "Do you have a test user email?" is a failure of autonomy.
 
-Before E2E tests, screenshot capture, QA testing, or any browser automation requiring login:
-- Load `auth-config-check` skill for configuration validation
-- If config missing/invalid: skill provides detection patterns and setup prompts
-- Pass auth config to sub-agents via context block
-- Select appropriate auth skill based on provider/method
+Before E2E tests, screenshot capture, QA testing, Playwright probes, or any browser automation requiring login:
+
+1. Load `auth-config-check` skill for configuration validation
+2. If config exists: load the matching auth skill, authenticate silently, pass auth to sub-agents
+3. If config missing: `auth-config-check` will load `setup-auth` to auto-detect and configure — **this is automatic, not interactive**
+4. Only if autonomous resolution fails completely: show diagnostic report to user (per `auth-config-check` Step 2b)
+5. Select appropriate auth skill based on provider/method (see `auth-config-check` → Auth Skill Selection)
+6. Pass auth config to sub-agents via context block
+
+**Prohibited behaviors during auth resolution:**
+- ❌ Asking "Do you have SUPABASE_SERVICE_ROLE_KEY?" — check env vars yourself
+- ❌ Presenting "Option A / Option B / Option C" for auth approaches — try them all autonomously
+- ❌ Suggesting the user run `/setup-auth` — Builder runs it itself
+- ❌ Skipping auth-dependent work because "credentials are not available" without trying to resolve
 
 ---
 

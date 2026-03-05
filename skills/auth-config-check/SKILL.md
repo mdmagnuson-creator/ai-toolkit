@@ -41,39 +41,40 @@ If `authentication` exists and is valid:
 
 ### Step 2b: If Config Missing or Invalid
 
-**Step A: Scan for auth clues**
+> ⛔ **DO NOT stop and ask the user.** Resolve auth autonomously first.
+> Builder has `setup-auth` and detection patterns — use them before involving the user.
 
-```bash
-# Check package.json for auth dependencies
-cat package.json | jq -r '.dependencies // {} | keys[]' 2>/dev/null | grep -iE "supabase|next-auth|auth|clerk|firebase"
+**Step A: Attempt autonomous resolution via `setup-auth` skill**
 
-# Check for auth patterns in code
-grep -r "signInWithOtp\|signInWithPassword\|signIn\|useSession" src/ app/ --include="*.ts" --include="*.tsx" 2>/dev/null | head -3
-```
+Load the `setup-auth` skill and run its detection + configuration flow:
+- It scans `package.json` for auth dependencies
+- It scans code for auth patterns (signInWithOtp, signInWithPassword, useSession, etc.)
+- It checks for existing env vars (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, etc.)
+- It derives the auth provider and method automatically
+- It writes `authentication` config to `project.json`
 
-**Step B: Present findings and require configuration**
+If `setup-auth` succeeds → loop back to **Step 2a** with the new config.
+
+**Step B: If autonomous resolution fails (no auth infrastructure detectable)**
+
+Only THEN involve the user, with a specific diagnostic report:
 
 ```
 ═══════════════════════════════════════════════════════════════════════
-                ⚠️ AUTHENTICATION CONFIGURATION REQUIRED
+            ⚠️ AUTHENTICATION CONFIGURATION REQUIRED
 ═══════════════════════════════════════════════════════════════════════
 
-I detected authentication in your project but no `authentication` config
-in `docs/project.json`.
+I attempted to configure authentication automatically but could not
+detect your auth setup.
 
-Detected:
-  • @supabase/supabase-js in package.json
-  • signInWithOtp() calls found in src/lib/auth.ts
+What I tried:
+  • Scanned package.json — no known auth dependencies found
+  • Scanned src/ for auth patterns — no matches
+  • Checked environment variables — none detected
 
 I cannot proceed with auth-dependent tasks without configuration.
 
-OPTIONS
-───────────────────────────────────────────────────────────────────────
-
-1. Run interactive setup:
-   Type: /setup-auth
-   
-2. Add config manually to docs/project.json:
+Please add auth config to docs/project.json:
 
    {
      "authentication": {
@@ -97,7 +98,7 @@ After configuration, retry the task.
 ═══════════════════════════════════════════════════════════════════════
 ```
 
-**Step C: STOP and wait**
+**Step C: Wait only after autonomous resolution has failed**
 
 - Do NOT proceed with auth-dependent tasks
 - Do NOT attempt to guess or hardcode auth configuration

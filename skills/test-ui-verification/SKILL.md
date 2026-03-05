@@ -547,14 +547,38 @@ Projects can configure probe behavior in `project.json`:
 
 ### Integration with Authentication
 
-If the project has authentication configured (`project.json` → `authentication`):
+> ⛔ **Authenticated pages are NOT optional probe targets.**
+> If the pages being changed require auth, you MUST authenticate before probing.
+> Skipping authenticated pages is a **last resort**, not a default.
 
-1. **Public pages** (login, marketing) → Probe directly, no auth needed
-2. **Authenticated pages** (dashboard, settings) → Use headless auth if configured, otherwise skip with note:
+**Authentication escalation ladder** (try each step before moving to the next):
+
+1. **Check `project.json` → `authentication`** for existing auth configuration
+2. **If configured:** Load the matching auth skill and authenticate in the Playwright context:
+   - `provider: supabase` + `method: passwordless-otp` → load `auth-supabase-otp` skill
+   - `provider: supabase` + `method: email-password` → load `auth-supabase-password` skill
+   - `provider: nextauth` + `method: email-password` → load `auth-nextauth-credentials` skill
+   - `headless: true` → load `auth-headless` skill for faster API-based auth
+   - Other providers → load `auth-generic` skill
+3. **If NOT configured:** Load the `setup-auth` skill to detect and configure auth autonomously
+4. **Only if all auth approaches fail** (no config, no env vars, no service keys, setup-auth cannot resolve):
    ```
-   ➖ Probe skipped for /dashboard: requires authentication (headless auth not configured)
+   ⚠️ PROBE DEGRADED: Cannot authenticate for /dashboard, /settings
+   
+   Attempted: [list what was tried]
+   Reason: [specific failure reason]
+   
+   Probing public pages only. Authenticated page assertions are UNVERIFIED.
+   Do NOT report probeStatus as "confirmed" — use "degraded-no-auth".
    ```
-3. **Mixed** → Probe public pages, skip authenticated pages with note
+
+**Page routing:**
+
+| Page type | Action |
+|-----------|--------|
+| Public (login, marketing, docs) | Probe directly, no auth needed |
+| Authenticated (dashboard, settings, admin) | Authenticate first using escalation ladder above, then probe |
+| Mixed (some public, some authenticated) | Probe public pages immediately; authenticate then probe protected pages |
 
 ### Example Probe Flow
 

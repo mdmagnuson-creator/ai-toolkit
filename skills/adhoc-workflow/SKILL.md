@@ -346,6 +346,22 @@ If analysis times out, show what was found with note: "⚠️ Analysis may be in
    - Prioritize assertions about elements the implementation will modify
    - Include at least one "existence" check for the primary target element
    - Include at least one "absence" check for the feature being added (confirms it doesn't exist yet)
+   - **CRITICAL: Assertions MUST target the actual pages being changed** — not just whatever public pages are accessible
+
+   > ⛔ **PAGE TARGETING RULE: Probe the pages you plan to modify.**
+   >
+   > If the analysis identifies changes to `/dashboard`, `/settings`, and `/onboarding`:
+   > - ✅ Generate assertions for `/dashboard`, `/settings`, `/onboarding`
+   > - ❌ Do NOT generate assertions only for `/login` because it's the only public page
+   >
+   > If the target pages require authentication:
+   > 1. Follow the **Autonomous Auth Resolution** protocol below to authenticate
+   > 2. Authenticate in the probe's Playwright context BEFORE navigating to protected pages
+   > 3. Generate assertions for the actual protected pages being modified
+   >
+   > **Never declare `probeStatus: "partially-confirmed"` when you only probed public pages**
+   > **but the actual changes target authenticated pages.** That's not "partially confirmed" —
+   > **that's "not probed at all."**
 
 2. **Build probe spec and invoke `@e2e-playwright` with `mode: "analysis-probe"`:**
 
@@ -424,6 +440,56 @@ If analysis times out, show what was found with note: "⚠️ Analysis may be in
 
    ═══════════════════════════════════════════════════════════════════════
    ```
+
+#### Autonomous Auth Resolution (for probing authenticated pages)
+
+> ⛔ **NEVER ask the user for credentials, env vars, or auth help when probing.**
+> Builder has auth skills and project config — use them autonomously.
+> The user already configured auth (or it can be auto-detected). Asking them
+> "Do you have SUPABASE_SERVICE_ROLE_KEY?" is a failure of autonomy.
+
+When the probe targets pages that require authentication, resolve auth **before** invoking `@e2e-playwright`:
+
+1. **Check `project.json` → `authentication`:**
+   ```bash
+   jq '.authentication' docs/project.json
+   ```
+
+2. **If auth is configured** → Load the matching auth skill silently:
+
+   | Provider + Method | Load Skill |
+   |-------------------|------------|
+   | `supabase` + `passwordless-otp` | `auth-supabase-otp` |
+   | `supabase` + `email-password` | `auth-supabase-password` |
+   | `nextauth` + `email-password` | `auth-nextauth-credentials` |
+   | `headless.enabled: true` | `auth-headless` (fastest) |
+   | Any other / `custom` | `auth-generic` |
+
+   Execute the auth skill's login flow. Pass the authenticated session/cookies to the probe context.
+
+3. **If auth is NOT configured** → Load `setup-auth` skill and run it:
+   - `setup-auth` scans the project for auth patterns (package.json deps, code patterns)
+   - It derives the provider and method automatically
+   - It checks for existing env vars (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, etc.)
+   - It writes the `authentication` config to `project.json`
+   - Then loop back to step 2 with the new config
+
+4. **If `setup-auth` fails** (truly no auth infrastructure detectable):
+   - Proceed with probe on public pages only
+   - Mark `probeStatus: "degraded-no-auth"` (NOT "partially-confirmed")
+   - Show prominent warning in the analysis dashboard:
+     ```
+     ⚠️ AUTH RESOLUTION FAILED — probe could not authenticate
+     Attempted: [list what was tried]
+     Protected pages NOT probed: /dashboard, /settings
+     ```
+
+**What to NEVER do:**
+- ❌ Ask "Do you have a test user email I can use?"
+- ❌ Ask "Do you have SUPABASE_SERVICE_ROLE_KEY available?"
+- ❌ Present options like "Option A: provide credentials, Option B: skip auth"
+- ❌ Suggest the user run `/setup-auth` — Builder should run it itself
+- ❌ Fall back to probing only public pages without attempting all auth approaches first
 
 ### Step 0.2: Show Analysis Dashboard
 
