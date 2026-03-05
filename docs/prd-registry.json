@@ -144,8 +144,8 @@
       "status": "draft",
       "filePath": "docs/drafts/prd-session-unification.md",
       "createdAt": "2026-03-05",
-      "stories": 6,
-      "notes": "Unify solo and multi-session modes into always-on coordination with lazy heartbeat. Eliminates agents.multiSession branching. Skeleton — needs 4 clarifying questions answered before ready."
+      "stories": 7,
+      "notes": "Unify solo and multi-session modes into always-on coordination with lazy heartbeat. Splits multi-session skill into session-setup (always-on) + multi-session (conditional). Eliminates agents.multiSession branching. All clarifying questions resolved."
     }
   ]
 }
