@@ -119,6 +119,15 @@
       "createdAt": "2026-03-04",
       "stories": 4,
       "notes": "Split test-flow into 7 focused skills, update Builder loading protocol, extract Builder inline docs, implement PRD archive with 5-item rolling window."
+    },
+    {
+      "id": "prd-vectorization-cloud-storage",
+      "title": "Vectorization Cloud Storage (Pinecone)",
+      "status": "ready",
+      "filePath": "docs/prds/prd-vectorization-cloud-storage.md",
+      "createdAt": "2026-03-02",
+      "stories": 9,
+      "notes": "Add Pinecone cloud vector storage for cross-machine sync. Eliminates per-machine embedding costs and enables instant access on new machines."
     }
   ]
 }
