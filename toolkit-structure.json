@@ -1,7 +1,7 @@
 {
   "$schema": "https://opencode.ai/schemas/toolkit-structure.json",
   "version": "1.0.0",
-  "generatedAt": "2026-03-05T12:00:00Z",
+  "generatedAt": "2026-03-05T18:00:00Z",
   "repository": "https://github.com/mdmagnuson-creator/yo-go",
   "agents": {
     "total": 64,
@@ -354,7 +354,7 @@
     }
   },
   "skills": {
-    "total": 64,
+    "total": 68,
     "categories": {
       "workflow": {
         "description": "Workflow and lifecycle skills",
@@ -377,7 +377,7 @@
           {
             "name": "multi-session",
             "path": "skills/multi-session/SKILL.md",
-            "description": "Multi-session coordination for parallel AI sessions. Provides session locks, heartbeat, and merge queue management. Only active when agents.multiSession: true in project.json."
+            "description": "Multi-session coordination for parallel AI sessions. Provides session locks, lazy heartbeat, and merge queue management. Loaded conditionally when multiple sessions are detected."
           },
           {
             "name": "post-completion",
@@ -398,6 +398,11 @@
             "name": "prd-workflow",
             "path": "skills/prd-workflow/SKILL.md",
             "description": "PRD mode workflow for Builder. Use when building features from PRDs, implementing user stories, or managing PRD state transitions. Triggers on: PRD mode, build PRD, implement stories, ship PRD."
+          },
+          {
+            "name": "session-setup",
+            "path": "skills/session-setup/SKILL.md",
+            "description": "Always-on session initialization for Builder. Handles session ID, lock file, heartbeat setup, and multi-session detection. Loaded at every session start."
           },
           {
             "name": "start-dev-server",
@@ -628,6 +633,21 @@
             "name": "builder-delegation",
             "path": "skills/builder-delegation/SKILL.md",
             "description": "Sub-agent delegation patterns for Builder orchestration. Triggers on: delegate to, call subagent, orchestration patterns."
+          },
+          {
+            "name": "builder-verification",
+            "path": "skills/builder-verification/SKILL.md",
+            "description": "Verification handling for Builder sessions. Covers as-user verification, prerequisite/environment failures, verification-failures.json logging, and manual fallback options."
+          },
+          {
+            "name": "builder-dashboard",
+            "path": "skills/builder-dashboard/SKILL.md",
+            "description": "Dashboard templates for Builder session startup. Provides fresh and resume dashboard formats with session state, PRD progress, and vectorization status."
+          },
+          {
+            "name": "builder-error-recovery",
+            "path": "skills/builder-error-recovery/SKILL.md",
+            "description": "Error recovery patterns for Builder sessions. Covers transient error handling, sub-agent failure recovery, unexpected error prompts, and loop detection with bulk fix strategies."
           },
           {
             "name": "cve",
@@ -992,22 +1012,82 @@
         "date": "2026-03-05",
         "changes": [
           {
-            "type": "feat",
-            "scope": "skills",
-            "description": "add analysis-probe mode to test-ui-verification skill for pre-implementation DOM assertions",
-            "hash": "pending"
+            "type": "refactor",
+            "scope": "builder",
+            "description": "extract error recovery to builder-error-recovery skill (-89 lines)",
+            "hash": "58e0a0a"
+          },
+          {
+            "type": "refactor",
+            "scope": "builder",
+            "description": "extract dashboard templates to builder-dashboard skill (-126 lines)",
+            "hash": "e265e42"
+          },
+          {
+            "type": "refactor",
+            "scope": "builder",
+            "description": "trim skill reference stubs to single-line references (-52 lines)",
+            "hash": "5b91425"
+          },
+          {
+            "type": "refactor",
+            "scope": "builder",
+            "description": "extract verification handling to builder-verification skill (-335 lines)",
+            "hash": "5df07b0"
+          },
+          {
+            "type": "refactor",
+            "scope": "builder-state",
+            "description": "replace solo/multi section with always-on session coordination",
+            "hash": "196d6f1"
           },
           {
             "type": "feat",
-            "scope": "skills",
-            "description": "add Step 0.1b Playwright Analysis Confirmation to adhoc-workflow skill",
-            "hash": "pending"
+            "scope": "schema",
+            "description": "deprecate agents.multiSession, register central update for all projects",
+            "hash": "dbff022"
+          },
+          {
+            "type": "refactor",
+            "scope": "developer",
+            "description": "make session coordination always-on, remove solo/multi branching",
+            "hash": "bc43ba5"
+          },
+          {
+            "type": "feat",
+            "scope": "multi-session",
+            "description": "implement lazy heartbeat for solo sessions (local-only when solo, full git round-trip when multi)",
+            "hash": "e5e8e87"
+          },
+          {
+            "type": "refactor",
+            "scope": "builder",
+            "description": "remove solo/multi branching, add session-setup skill reference",
+            "hash": "b0edc8b"
+          },
+          {
+            "type": "feat",
+            "scope": "session-unification",
+            "description": "create session-setup skill and trim multi-session skill",
+            "hash": "b3a276c"
+          },
+          {
+            "type": "docs",
+            "scope": "prd",
+            "description": "promote prd-session-unification to ready status",
+            "hash": "39ab463"
+          },
+          {
+            "type": "docs",
+            "scope": "prd",
+            "description": "add session-unification and builder-skill-extraction PRDs",
+            "hash": "03e699c"
           },
           {
             "type": "feat",
             "scope": "builder",
-            "description": "update Analysis Gate guardrail to require Playwright probe before implementation",
-            "hash": "pending"
+            "description": "add mandatory Playwright analysis probe to ad-hoc Analysis Gate",
+            "hash": "1d04f23"
           }
         ]
       },
