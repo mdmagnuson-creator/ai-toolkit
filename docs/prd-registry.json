@@ -132,20 +132,22 @@
     {
       "id": "prd-builder-skill-extraction",
       "title": "Builder Skill Extraction (Phase 2)",
-      "status": "ready",
-      "filePath": "docs/prds/prd-builder-skill-extraction.md",
+      "status": "complete",
+      "filePath": "docs/completed/prd-builder-skill-extraction.md",
       "createdAt": "2026-03-05",
+      "completedAt": "2026-03-05",
       "stories": 5,
-      "notes": "Extract verification handling, dashboards, and error recovery from builder.md to 3 new skills. Reduces builder from 2,082 to ~1,415 lines. Complementary to prd-token-optimization (no overlap)."
+      "notes": "Extracted verification handling, dashboards, and error recovery from builder.md to 3 new skills. Reduced builder from 2,082 to 1,459 lines (-30%). Created builder-verification (14KB), builder-dashboard (5KB), builder-error-recovery (4KB)."
     },
     {
       "id": "prd-session-unification",
       "title": "Session Unification (Always-On Coordination)",
-      "status": "ready",
-      "filePath": "docs/prds/prd-session-unification.md",
+      "status": "complete",
+      "filePath": "docs/completed/prd-session-unification.md",
       "createdAt": "2026-03-05",
+      "completedAt": "2026-03-05",
       "stories": 7,
-      "notes": "Unify solo and multi-session modes into always-on coordination with lazy heartbeat. Splits multi-session skill into session-setup (always-on) + multi-session (conditional). Eliminates agents.multiSession branching. All clarifying questions resolved."
+      "notes": "Unified solo and multi-session modes into always-on coordination with lazy heartbeat. Created session-setup skill, deprecated agents.multiSession flag, eliminated all solo/multi branching from builder.md and developer.md."
     }
   ]
 }
