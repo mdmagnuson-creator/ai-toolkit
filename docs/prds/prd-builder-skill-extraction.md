@@ -1,6 +1,6 @@
 # PRD: Builder Skill Extraction (Phase 2)
 
-**Status:** Draft
+**Status:** Ready
 **Priority:** Medium
 **Created:** 2026-03-05
 **Author:** @toolkit

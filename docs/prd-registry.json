@@ -132,8 +132,8 @@
     {
       "id": "prd-builder-skill-extraction",
       "title": "Builder Skill Extraction (Phase 2)",
-      "status": "draft",
-      "filePath": "docs/drafts/prd-builder-skill-extraction.md",
+      "status": "ready",
+      "filePath": "docs/prds/prd-builder-skill-extraction.md",
       "createdAt": "2026-03-05",
       "stories": 5,
       "notes": "Extract verification handling, dashboards, and error recovery from builder.md to 3 new skills. Reduces builder from 2,082 to ~1,415 lines. Complementary to prd-token-optimization (no overlap)."
