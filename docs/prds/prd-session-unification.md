@@ -1,6 +1,6 @@
 # PRD: Session Unification (Always-On Coordination)
 
-**Status:** Draft
+**Status:** Ready
 **Priority:** Low
 **Created:** 2026-03-05
 **Author:** @toolkit

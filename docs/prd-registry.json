@@ -141,8 +141,8 @@
     {
       "id": "prd-session-unification",
       "title": "Session Unification (Always-On Coordination)",
-      "status": "draft",
-      "filePath": "docs/drafts/prd-session-unification.md",
+      "status": "ready",
+      "filePath": "docs/prds/prd-session-unification.md",
       "createdAt": "2026-03-05",
       "stories": 7,
       "notes": "Unify solo and multi-session modes into always-on coordination with lazy heartbeat. Splits multi-session skill into session-setup (always-on) + multi-session (conditional). Eliminates agents.multiSession branching. All clarifying questions resolved."
