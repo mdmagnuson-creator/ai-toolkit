@@ -4,166 +4,150 @@ This update ensures every project has proper authentication acquisition configur
 
 ## What to do
 
-This is an **interactive update**. Builder reviews each project's current setup, asks targeted questions, and writes configuration. This is NOT informational — Builder must actively configure every project.
+This is an **analyze-first update**. Builder performs a complete autonomous analysis of the project, then presents a single comprehensive report with proposed configuration for the user to review. Do NOT ask questions one at a time — gather all information first, then present everything at once.
 
-### Step 1: Review current authentication config
+### Phase 1: Autonomous Analysis (no user interaction)
 
-Read `docs/project.json` → `authentication`:
+Read and analyze the following **before showing anything to the user**:
 
-- If `authentication` is missing entirely → Run `setup-auth` skill (Step 2)
-- If `authentication` exists but `acquisition` is missing → Go to Step 3
-- If `authentication.acquisition` exists → Validate it (Step 4)
+**1a. Authentication state:**
+- Read `docs/project.json` → `authentication`
+- Check if `authentication` block exists
+- Check if `authentication.acquisition` exists and is valid (has `description`, `steps[]`, `fallbackToUI`)
+- Check if `authentication.headless` exists and what method it uses
 
-### Step 2: Run setup-auth if no auth config exists
+**1b. Auth provider detection:**
+- Read `docs/project.json` → `authentication.provider` (e.g., supabase, nextauth, custom)
+- Read `docs/project.json` → `authentication.method` (e.g., email-password, passwordless-otp)
+- If no auth config, check `capabilities.authentication` — if true, auth is needed but unconfigured
 
-Load the `setup-auth` skill and run the full wizard, including the new CLI auth and acquisition steps (Steps 6b and 6c in the wizard).
+**1c. CLI tool discovery:**
+- Check `package.json` → `scripts` for auth-related commands (e.g., `auth:token`, `test:auth`, `cli`)
+- Check for CLI entry points in `bin/`, `cli/`, or `src/cli/`
+- Check for test utility scripts that generate tokens
+- Note any found CLI tools and their likely purpose
 
-After wizard completes, continue to Step 4.
+**1d. App architecture:**
+- Read `docs/project.json` → `apps[]`
+- For each app: note `type`, `framework`, `webContent` (if set)
+- For desktop apps: check if dev config uses Vite dev server URL (suggests `remote`) or file:// protocol (suggests `bundled`)
+- Check `electron-builder.yml`, `forge.config.*`, `electron.vite.config.*` for architecture clues
+- Check main process entry point for `loadURL(http://localhost:...)` vs `loadFile(...)` patterns
 
-### Step 3: Configure acquisition (interactive)
+**1e. Existing postChangeWorkflow:**
+- Check if `docs/project.json` → `postChangeWorkflow` already exists
 
-If `authentication` exists but `acquisition` is missing, ask the user:
+### Phase 2: Present Full Analysis (single output)
+
+Present ALL findings in one dashboard. Include what you found, what you propose, and what you need the user to confirm:
 
 ```
 ═══════════════════════════════════════════════════════════════════════
-                AUTH ACQUISITION CONFIGURATION
+         ARCHITECTURE-AWARE VERIFICATION — FULL ANALYSIS
 ═══════════════════════════════════════════════════════════════════════
 
-Your project has authentication configured, but agents don't know how
-to get an authenticated session when automated methods fail.
+PROJECT: {project name}
 
-1. Does this project have a CLI command for getting test auth tokens?
+─── AUTHENTICATION ────────────────────────────────────────────────────
 
-   A. Yes — I have a CLI/script that outputs tokens
-   B. No — use standard auth flow only
+  Provider:     {provider} ({method})
+  Auth config:  {exists/missing}
+  Acquisition:  {exists/missing/incomplete}
+  Headless:     {method or "not configured"}
+
+  {If CLI tools found:}
+  CLI tools found:
+    • {script name} — {what it likely does}
+
+  Proposed authentication.acquisition:
+    description: "{proposed description}"
+    steps:
+      1. {proposed step}
+      2. {proposed step}
+    fallbackToUI: {true/false}
+
+  {If CLI found, also propose:}
+  Proposed authentication.headless:
+    method: "cli"
+    command: "{proposed command}"
+    responseFormat: {json/text}
+    tokenPath: "{proposed path}"
+    sessionStorage: {cookie/localStorage}
+
+─── APP ARCHITECTURE ──────────────────────────────────────────────────
+
+  {For each app:}
+  App: {name} ({type}, {framework})
+    webContent:  {current value or "not set"}
+    Evidence:    {what you found — e.g., "main.ts loads http://localhost:5173"}
+    Proposed:    webContent: "{proposed value}"
+    Pipeline:    {inferred verification pipeline}
+
+  {If no desktop apps:}
+  No desktop apps — web-only verification pipeline applies.
+
+─── VERIFICATION PIPELINE ─────────────────────────────────────────────
+
+  Inferred pipeline: {pipeline steps}
+  postChangeWorkflow: {auto-inferred / already configured / custom needed}
+
+═══════════════════════════════════════════════════════════════════════
+
+Please review:
+  [A] Looks good — apply this configuration
+  [E] I need to edit some values first (tell me what to change)
 
 > _
 ═══════════════════════════════════════════════════════════════════════
 ```
 
-**If A (CLI available):**
+**Important:** The proposed values should be Builder's best inference based on the codebase analysis. The user reviews and either approves or requests edits. Do NOT leave blank fields for the user to fill in — propose concrete values.
 
-```
-Configure the CLI auth command:
+### Phase 3: Apply Configuration
 
-  Command: ____________
-  (e.g., pnpm cli auth:test-token --email $TEST_EMAIL)
+After user approves (or provides edits):
 
-  Output format?
-    1. JSON   2. Plain text   3. KEY=VALUE
-
-  Token field path (for JSON): ____________
-  Where does the app store the session?
-    1. Cookies   2. localStorage   3. Both
-```
-
-Write `authentication.headless` with `method: "cli"` and the collected values.
-
-**Then, regardless of A or B, ask:**
+1. Write all configuration to `docs/project.json` in a single update
+2. Validate the written config:
+   ```bash
+   jq '.authentication.acquisition' docs/project.json
+   jq '.apps[] | {name, type, webContent}' docs/project.json
+   ```
+3. Show completion summary:
 
 ```
 ═══════════════════════════════════════════════════════════════════════
-                AUTH ACQUISITION STEPS
-═══════════════════════════════════════════════════════════════════════
-
-Describe step-by-step how an agent should get an authenticated session:
-
-  Summary: ____________
-  Steps (one per line):
-    1. ____________
-    2. ____________
-    3. ____________
-
-  Fall back to UI login if this fails? (Y/n)
-  Notes/gotchas: ____________
-═══════════════════════════════════════════════════════════════════════
-```
-
-Write `authentication.acquisition` with collected values.
-
-### Step 4: Validate acquisition config
-
-Run:
-
-```bash
-jq '.authentication.acquisition' docs/project.json
-```
-
-Verify:
-- `description` is a non-empty string
-- `steps` is a non-empty array
-- `fallbackToUI` is set
-
-### Step 5: Review apps[] for desktop projects
-
-Read `docs/project.json` → `apps[]`:
-
-- If no `apps[]` or all apps are `type: "web"` → Skip to Step 7
-- If any app has `type: "desktop"` → Continue to Step 6
-
-### Step 6: Configure webContent for desktop apps (interactive)
-
-For each desktop app missing `webContent`:
-
-```
-═══════════════════════════════════════════════════════════════════════
-                APP ARCHITECTURE: {app.name}
-═══════════════════════════════════════════════════════════════════════
-
-Your desktop app "{app.name}" (framework: {app.framework}) needs
-webContent configuration so Builder knows how to verify changes.
-
-During development, does this app:
-
-  A. Load bundled files from disk (code changes need a full rebuild)
-  B. Connect to a dev server (like Vite) with HMR (code changes appear
-     instantly, but the Electron shell still needs to be running)
-  C. Hybrid — some content is bundled, some comes from a dev server
-
-> _
-═══════════════════════════════════════════════════════════════════════
-```
-
-| Answer | webContent value | Verification behavior |
-|--------|------------------|----------------------|
-| A | `"bundled"` | Rebuild → relaunch Electron → Playwright-Electron verify |
-| B | `"remote"` | Ensure Electron running → Playwright-Electron verify (no rebuild) |
-| C | `"hybrid"` | Rebuild → relaunch Electron → Playwright-Electron verify |
-
-Write `apps[].webContent` for each desktop app.
-
-**Then ask:**
-
-```
-Does this project need custom verification steps beyond what
-auto-inference provides?
-
-  A. No — auto-inference is fine (recommended)
-  B. Yes — I need custom steps
-
-> _
-```
-
-If B, collect `postChangeWorkflow` steps and write to `project.json`.
-
-### Step 7: Report what was configured
-
-```
-═══════════════════════════════════════════════════════════════════════
-            VERIFICATION CONFIGURATION COMPLETE
+             VERIFICATION CONFIGURATION COMPLETE
 ═══════════════════════════════════════════════════════════════════════
 
 Configured:
   ✅ authentication.acquisition — agent-readable auth steps
-  ✅ authentication.headless.method: "cli" — CLI token generation
-  ✅ apps[0].webContent: "remote" — desktop verification strategy
+  {✅ authentication.headless.method: "cli" — if applicable}
+  {✅ apps[N].webContent: "value" — for each desktop app}
 
 Verification pipeline for this project:
-  typecheck → lint → unit tests → [ensure Electron running] →
-  Playwright-Electron verification
+  {full pipeline description}
 
 ═══════════════════════════════════════════════════════════════════════
 ```
+
+### Edge Cases
+
+**No auth at all (`capabilities.authentication` is false or missing):**
+- Skip auth acquisition entirely
+- Only configure app architecture if desktop apps exist
+- If nothing to configure, mark update as applied with note "No auth, no desktop apps — nothing to configure"
+
+**Auth exists but no `capabilities.authentication`:**
+- Still configure acquisition (the auth config proves auth is used)
+
+**Multiple desktop apps:**
+- Analyze each independently — they may have different `webContent` values
+
+**User says [E] to edit:**
+- Ask what specifically needs to change
+- Re-present the updated proposal for confirmation
+- Do NOT revert to step-by-step questioning
 
 ## Files affected
 
