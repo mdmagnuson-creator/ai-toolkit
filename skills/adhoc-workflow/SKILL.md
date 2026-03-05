@@ -307,6 +307,27 @@ If analysis times out, show what was found with note: "⚠️ Analysis may be in
 >
 > **Failure behavior:** If proceeding to Step 0.2 without running the probe (when applicable), STOP and run the probe first.
 
+> ⛔ **NO-BYPASS RULE: The probe cannot be skipped through rationalization.**
+>
+> The following are NOT valid reasons to skip the probe:
+>
+> | Invalid Rationalization | Why It's Wrong |
+> |------------------------|----------------|
+> | "This is an Electron/desktop app" | Electron apps have web content — probe the web UI |
+> | "The analysis is clear from the code" | Code analysis misses runtime state, CSS, route guards |
+> | "This is a UX flow restructuring, not element verification" | UX changes affect visible elements — probe them |
+> | "The user described the issue clearly" | User descriptions are input, not verification |
+> | "I already took a screenshot" | Screenshots show current state; probes verify specific assertions |
+> | "This is a backend/config change" | If no UI assertions exist, the probe is skipped via valid skip conditions — don't preemptively decide |
+>
+> **The ONLY valid skip conditions** are listed in `test-ui-verification` skill → "Skip Conditions":
+> - `agents.verification.mode: "no-ui"` in project.json
+> - Dev server unreachable (after attempting to start it)
+> - No page assertions generated (purely backend analysis)
+> - `agents.analysisProbe: false` in project.json (explicit user opt-out)
+>
+> **If you catch yourself about to skip the probe for any other reason — STOP.** Run the probe.
+
 **After Step 0.1 code analysis and Step 0.0a screenshot, run the Playwright probe:**
 
 1. **Generate probe assertions** from code analysis findings:

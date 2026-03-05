@@ -515,6 +515,18 @@ Probes are **skipped** (not failed) when:
 
 **Important:** When probes are skipped, analysis proceeds normally — skipping is NOT a failure. The probe is an enhancement that catches discrepancies when available.
 
+> ⛔ **NOT valid skip conditions (common mistakes):**
+>
+> | Condition | Why It's NOT a Valid Skip |
+> |-----------|--------------------------|
+> | Electron/Tauri/desktop app | Desktop apps with `webContent: "remote"` or `"bundled"` have web UI — probe it |
+> | "Code analysis is clear" | Probes verify runtime state, not code correctness |
+> | "UX/flow restructuring" | If the change affects visible pages, probe those pages |
+> | "Screenshot already captured" | Screenshots ≠ probes — probes verify specific assertions |
+>
+> **Rule:** If the app has web content (any `webContent` value or web-based app), the probe MUST run.
+> The probe target URL depends on app type — see "Architecture-Aware Verification" above.
+
 ### Project Configuration
 
 Projects can configure probe behavior in `project.json`:
