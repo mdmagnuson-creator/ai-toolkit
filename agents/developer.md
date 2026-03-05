@@ -536,6 +536,34 @@ State explicitly:
 - Do NOT shotgun multiple changes hoping one works
 - If the fix doesn't work, return to Step 3 — you missed something
 
+### Canonical Source Fidelity
+
+> ⛔ **When your task references specific source files, READ them before writing.**
+>
+> Do NOT generate field names, config shapes, table columns, or multi-step flows from conceptual understanding.
+> LLMs produce plausible-but-wrong content that passes lint/typecheck but has incorrect names.
+
+**Trigger:** Your task mentions specific files, line ranges, schemas, or says "match X" / "reproduce Y" / "document Z from source."
+
+**Required steps:**
+
+1. **READ** every referenced source file before writing anything
+2. **EXTRACT** exact field names, column headers, enum values, and structure from the source
+3. **REPRODUCE** faithfully — do not rename fields, reorder columns, or "improve" the structure
+4. **VERIFY** after writing — re-read the source and diff against your output for mismatches
+
+**Failure pattern ("Plausible Fabrication"):**
+
+| What happens | Example |
+|--------------|---------|
+| Task says "document fields from auth-headless/SKILL.md" | You should write: `command`, `responseFormat`, `tokenPath` |
+| Developer invents from concept instead | Developer writes: `strategy`, `tokenOutput`, `sessionCookie` |
+| Result: valid code, wrong field names | Passes lint/build but documentation is wrong |
+
+**This matters because:** Automated checks (typecheck, lint, build) cannot catch fabricated field names — the content is structurally valid but semantically wrong. Only source comparison catches it.
+
+---
+
 ### Band-Aid Pattern Detection
 
 **STOP and reconsider** if your fix involves:

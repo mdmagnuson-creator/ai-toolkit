@@ -88,6 +88,92 @@ Requirements:
 
 ---
 
+## Canonical Content for Documentation Tasks
+
+> ⚠️ **MANDATORY for documentation/reproduction tasks**
+>
+> When delegating tasks that require faithful reproduction of toolkit-internal structures
+> (field names, config schemas, multi-step flows, table columns), **embed the canonical
+> content directly in the context block**. Do NOT rely on Developer reading referenced
+> source files — it will fabricate plausible-but-wrong field names instead.
+
+### When This Applies
+
+| Task type | Example | Risk |
+|-----------|---------|------|
+| Documenting config schemas | "Document the auth headless CLI fields" | Developer invents field names |
+| Reproducing multi-step flows | "Show the 4-step verification pipeline" | Developer restructures the flow |
+| Updating examples with real field names | "Expand the project.json example" | Developer fabricates config shape |
+| Syncing content across repos | "Match builder.md lines 1135-1178" | Developer paraphrases instead of copying |
+
+### Required: Inline Canonical Source
+
+When delegating documentation tasks, **read the source content yourself** and embed it in the context block using the `canonicalSource` field:
+
+```yaml
+<context>
+version: 1
+project:
+  path: /Users/dev/code/website
+  stack: nextjs
+conventions:
+  summary: |
+    TypeScript strict. Tailwind + shadcn/ui. App Router.
+  fullPath: /Users/dev/code/website/docs/CONVENTIONS.md
+canonicalSource:
+  description: "Exact content to reproduce — do not paraphrase or infer"
+  sources:
+    - file: agents/builder.md
+      lines: "1135-1178"
+      content: |
+        ### Step 1: Check postChangeWorkflow override
+        If project.json → postChangeWorkflow exists, use it directly.
+        
+        ### Step 2: Auto-infer from apps[]
+        | App Type | Framework | webContent | Pipeline |
+        |----------|-----------|------------|----------|
+        | web      | next      | true       | HMR      |
+        | desktop  | electron  | true       | rebuild  |
+        ...
+    - file: skills/auth-headless/SKILL.md
+      lines: "331-359"
+      content: |
+        headless:
+          enabled: true
+          method: cli
+          command: "npx my-cli auth login"
+          responseFormat: json
+          tokenPath: "$.access_token"
+          refreshTokenPath: "$.refresh_token"
+          sessionStorage: cookie
+</context>
+
+Reproduce the verification pipeline documentation using the canonical source above.
+Field names, column headers, and flow structure MUST match exactly.
+```
+
+### Why Inline Content is Required
+
+Developer has demonstrated a consistent **"Plausible Fabrication"** pattern:
+- When told "read builder.md lines 1135-1178", it generates what it *thinks* should be there
+- Fabricated content is structurally valid (passes typecheck/lint/build)
+- A reviewer unfamiliar with the source wouldn't notice the wrong field names
+- This pattern is invisible to automated checks
+
+By embedding the canonical content directly, Developer has the exact text in its context window and doesn't need to read external files to reproduce it faithfully.
+
+### Checklist Before Documentation Delegation
+
+```
+□ Identified all source files referenced in the task
+□ Read each source file and extracted the relevant sections
+□ Embedded extracted content in canonicalSource block
+□ Included exact field names, column headers, and structure
+□ Added instruction: "Field names and structure MUST match canonicalSource exactly"
+```
+
+---
+
 ## Primary Sub-Agents
 
 | Agent | Purpose |
