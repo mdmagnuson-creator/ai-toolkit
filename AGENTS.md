@@ -30,12 +30,18 @@ If a command requires system access, stop and tell the user to run it manually.
 > ⛔ **CRITICAL: Never use system temp directories**
 >
 > Do NOT write to `/tmp/`, `/var/folders/`, or any system temporary directory.
+> This includes debug scripts, diagnostic files, log output, and any transient artifacts.
 
 Use project-local `.tmp/` for temporary artifacts.
 
+**Why this matters:**
+- Scripts in `/tmp/` cannot resolve project dependencies (`node_modules`, Go modules, etc.) — they will fail with `ERR_MODULE_NOT_FOUND`
+- `/tmp/` is outside OpenCode's allowed paths and triggers permission prompts
+- macOS maps `/tmp/` to `/private/tmp/`, adding further confusion
+
 Rules:
 - Use `.tmp/` in the project root for all temporary files
-- Create subdirectories as needed (`.tmp/screenshots/`, `.tmp/logs/`)
+- Create subdirectories as needed (`.tmp/screenshots/`, `.tmp/logs/`, `.tmp/scripts/`)
 - Ensure `.tmp/` is listed in `.gitignore`
 - Clean up temp files when no longer needed
 

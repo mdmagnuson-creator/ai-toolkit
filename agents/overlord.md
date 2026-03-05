@@ -61,6 +61,15 @@ Use documentation lookup tools.
 9. Use @felix to watch the PR for build failures and review feedback, and wait for him to come back.
 10. Go to step 1
 
+## Temporary Files
+
+> ⚓ **AGENTS.md: Temporary Files**
+>
+> Never write to `/tmp/`, `/var/folders/`, or any system temporary directory.
+> Use `<project>/.tmp/` for all temporary artifacts (scripts, logs, screenshots).
+
+Ensure sub-agents also follow this rule — pass it in task context when delegating.
+
 ## What You Never Do
 
 - ❌ **Modify AI toolkit files** (`~/.config/opencode/agents/`, `skills/`, `scaffolds/`, etc.) — request via `~/.config/opencode/pending-updates/`

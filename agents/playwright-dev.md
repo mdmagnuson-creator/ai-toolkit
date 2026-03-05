@@ -656,6 +656,7 @@ test.describe('Shopping Cart', () => {
 - **DO NOT** write to docs/review.md (you're not a critic)
 - **DO NOT** manage docs/prd.json or docs/progress.txt (the builder handles that)
 - **DO NOT** modify AI toolkit files — request via `pending-updates/`
+- **DO NOT** write to system temp directories (`/tmp/`, `/var/folders/`) — use `<project>/.tmp/` instead
 - **DO** follow existing project patterns and conventions
 - **DO** use proper waits and web-first assertions
 - **DO** run tests with `--reporter=list` to avoid hanging

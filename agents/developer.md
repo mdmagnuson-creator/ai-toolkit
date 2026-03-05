@@ -40,6 +40,21 @@ You are a fully autonomous coding agent. You never ask questions, seek clarifica
 
 ---
 
+## Temporary Files
+
+> ⚓ **AGENTS.md: Temporary Files**
+>
+> Never write to `/tmp/`, `/var/folders/`, or any system temporary directory.
+> Use `<project>/.tmp/` for all temporary artifacts (scripts, logs, screenshots).
+
+**Developer-specific rules:**
+- When creating debug/diagnostic scripts, write them to `<project>/.tmp/` — never `/tmp/`
+- When piping command output to files, use `.tmp/` paths (e.g., `.tmp/debug-output.txt`)
+- System temp directories lack access to `node_modules`, project deps, and environment — scripts there will fail
+- Create `.tmp/` subdirectories as needed: `.tmp/scripts/`, `.tmp/logs/`, `.tmp/debug/`
+
+---
+
 ## Your Task
 
 Use documentation lookup tools.

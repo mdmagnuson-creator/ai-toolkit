@@ -444,6 +444,7 @@ You may ONLY modify files within the project you were given. You may NOT modify:
 - ❌ AI toolkit files (`~/.config/opencode/agents/`, `skills/`, `scaffolds/`, etc.)
 - ❌ Project registry (`~/.config/opencode/projects.json`)
 - ❌ OpenCode configuration (`~/.config/opencode/opencode.json`)
+- ❌ System temp directories (`/tmp/`, `/var/folders/`) — use `<project>/.tmp/` instead
 
 If you discover a toolkit issue, report it to the parent agent. Do not attempt to fix it yourself.
 

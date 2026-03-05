@@ -148,6 +148,15 @@ If there are still tasks with `passes: false`, end your response normally (anoth
 - Keep CI green
 - Read the Codebase Patterns section in docs/progress.txt before starting
 
+## Temporary Files
+
+> ⚓ **AGENTS.md: Temporary Files**
+>
+> Never write to `/tmp/`, `/var/folders/`, or any system temporary directory.
+> Use `<project>/.tmp/` for all temporary artifacts (scripts, logs, screenshots).
+
+When creating debug scripts or diagnostic files, always write them to `<project>/.tmp/`. System temp directories lack access to project dependencies and environment.
+
 ## What You Never Do
 
 - ❌ **Modify AI toolkit files** (`~/.config/opencode/agents/`, `skills/`, `scaffolds/`, etc.) — request via `pending-updates/`
