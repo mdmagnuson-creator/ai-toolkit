@@ -1519,7 +1519,8 @@
         "multiSession": {
           "type": "boolean",
           "default": false,
-          "description": "Enable multi-session coordination (session locks, heartbeat, merge queue). For solo developers, keep false."
+          "deprecated": true,
+          "description": "DEPRECATED: Session coordination is now always-on. This field is ignored. Remove from project.json."
         },
         "autoMerge": {
           "type": "string",
