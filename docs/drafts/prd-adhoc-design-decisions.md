@@ -335,15 +335,16 @@ The 11 test skills break into two tiers:
 
 ### US-007: Merge Always-Needed Skills into test-flow
 
-**Description:** As the test-flow skill, I absorb the content from `test-quality-checks` and `test-activity-resolution` so that a single skill load provides the complete quality-check pipeline.
+**Description:** As the test-flow skill, I absorb the content from `test-quality-checks` and `test-activity-resolution` so that a single skill load provides the complete quality-check pipeline. I also absorb the skip-gate logic currently in `builder.md` Step 4, making test-flow the single unconditional entry point that Builder calls for every story/task completion.
 
 **Acceptance Criteria:**
 
+- [ ] `test-flow/SKILL.md` contains a **skip-gate** as its first step: checks changed files against skip patterns (docs-only, config-only, test-only, CI/build config, lockfile-only, user explicit skip) and exits early if all files match — moved from `builder.md` Step 4
 - [ ] `test-flow/SKILL.md` contains the full quality-check pipeline (typecheck → lint → test → rebuild → critic → Playwright) currently in `test-quality-checks`
 - [ ] `test-flow/SKILL.md` contains the activity resolution logic (file-pattern-based test selection, `isUIProject()`, CI mode) currently in `test-activity-resolution`
-- [ ] `test-flow/SKILL.md` is organized with clear sections: Activity Resolution, Quality Check Pipeline, Completion Prompt, Tier 2 Skill Loading
-- [ ] `test-quality-checks/SKILL.md` is deleted (or reduced to a redirect comment pointing to `test-flow`)
-- [ ] `test-activity-resolution/SKILL.md` is deleted (or reduced to a redirect comment pointing to `test-flow`)
+- [ ] `test-flow/SKILL.md` is organized with clear sections: Skip Gate, Activity Resolution, Quality Check Pipeline, Completion Prompt, Tier 2 Skill Loading
+- [ ] `test-quality-checks/SKILL.md` is deleted — thorough grep audit confirms no remaining references
+- [ ] `test-activity-resolution/SKILL.md` is deleted — thorough grep audit confirms no remaining references
 - [ ] All existing references to `test-quality-checks` and `test-activity-resolution` in other agents/skills are updated to point to `test-flow`
 - [ ] Validate scripts pass
 
@@ -376,14 +377,17 @@ The 11 test skills break into two tiers:
 
 ### US-010: Update builder.md Verification Pipeline References
 
-**Description:** As builder.md, my "Verification Pipeline Resolution" section (Steps 1-7) references `test-flow` as the canonical pipeline instead of defining inline steps.
+**Description:** As builder.md, my "Verification Pipeline Resolution" section (Steps 1-7) is replaced with a single unconditional call to `test-flow`. Builder no longer decides *when* or *how* to verify — it always calls test-flow, which owns the full decision tree including skip conditions.
 
 **Acceptance Criteria:**
 
-- [ ] "Verification Pipeline Resolution" section in `builder.md` (approximately lines 1135-1191) is simplified to reference `test-flow`
-- [ ] Builder retains its role as the orchestrator that *decides* when to run verification, but the *how* lives in `test-flow`
-- [ ] The analysis gate (Step 4 skip conditions) remains in builder.md since it's builder-specific orchestration logic
-- [ ] Net reduction of ≥20 lines from `builder.md`
+- [ ] "Verification Pipeline Resolution" section in `builder.md` (approximately lines 1135-1191) is replaced with a single mandatory step: "Load `test-flow` skill and execute"
+- [ ] The MANDATORY marker is preserved — Builder MUST call test-flow before every commit or task completion declaration
+- [ ] All skip-gate logic (Step 4) is removed from builder.md (now lives in test-flow)
+- [ ] All pipeline resolution logic (Steps 1-3) is removed from builder.md (now lives in test-flow)
+- [ ] Story-scoped Playwright (Step 5), retry strategy (Step 6), and ops-only verification (Step 7) details are removed from builder.md (now lives in test-flow or referenced sub-skills)
+- [ ] Builder.md retains only the one-liner: unconditionally call test-flow
+- [ ] Net reduction of ≥40 lines from `builder.md`
 - [ ] Validate scripts pass
 
 ### US-011: Deduplicate isUIProject() and Shared Detection Functions
@@ -408,7 +412,7 @@ The 11 test skills break into two tiers:
 - [ ] Create a verification document (`docs/testing-consolidation-verification.md`) that maps each pre-consolidation quality check step to its post-consolidation location
 - [ ] Every quality check in the pre-consolidation `adhoc-workflow` "Per-Task Quality Checks" section has a corresponding step in `test-flow`
 - [ ] Every quality check in the pre-consolidation `prd-workflow` "Per-Story Quality Checks" section has a corresponding step in `test-flow`
-- [ ] Every step in the pre-consolidation `builder.md` "Verification Pipeline Resolution" is accounted for
+- [ ] Every step in the pre-consolidation `builder.md` "Verification Pipeline Resolution" is accounted for, including: skip conditions (Step 4), postChangeWorkflow override (Step 1), auto-inference (Step 2), story-scoped Playwright (Step 5), retry strategy (Step 6), and ops-only verification (Step 7)
 - [ ] The 5-attempt (PRD) vs 3-attempt (ad-hoc) retry difference is preserved and clearly documented
 - [ ] PRD-specific behaviors (story blocking, E2E deferral) are preserved
 - [ ] Ad-hoc-specific behaviors (Task Spec reference, single-task scope) are preserved
@@ -420,7 +424,7 @@ The 11 test skills break into two tiers:
 
 - FR-11: `test-flow` MUST be the single canonical skill loaded for quality checks in both ad-hoc and PRD modes
 - FR-12: `adhoc-workflow` and `prd-workflow` MUST NOT contain inline quality check pipeline definitions — they reference `test-flow`
-- FR-13: `builder.md` Verification Pipeline MUST reference `test-flow` for the pipeline steps, retaining only builder-specific orchestration logic
+- FR-13: `builder.md` Verification Pipeline MUST be reduced to a single unconditional call to `test-flow` — all skip logic, pipeline resolution, and retry strategies live in test-flow or its sub-skills
 - FR-14: `isUIProject()` MUST be defined in exactly one location and referenced elsewhere
 - FR-15: E2E URL resolution MUST be defined canonically in `test-url-resolution` and NOT duplicated inline in other skills
 - FR-16: The consolidated pipeline MUST produce identical behavior to the current separate definitions — no quality checks dropped or added
@@ -429,7 +433,8 @@ The 11 test skills break into two tiers:
 
 ## Technical Considerations (Part 2)
 
-- **File size risk:** Merging 3 skills into `test-flow` will make it ~800 lines. This is within acceptable range for a skill that is always loaded, but should be monitored. If it grows beyond 1000 lines, consider re-splitting.
+- **File size risk:** Merging 3 skills plus the skip-gate logic into `test-flow` will make it ~850 lines. This is within acceptable range for a skill that is always loaded, but should be monitored. If it grows beyond 1000 lines, consider re-splitting.
+- **Skip-gate ownership:** The skip conditions currently in `builder.md` Step 4 move into `test-flow`. This means test-flow is truly unconditional from Builder's perspective — Builder always calls it, test-flow decides whether to actually run.
 - **Skill trigger updates:** `opencode.json` skill triggers for `test-quality-checks` and `test-activity-resolution` need to be redirected to `test-flow` or removed
 - **Cross-reference audit:** After consolidation, grep for `test-quality-checks` and `test-activity-resolution` references across ALL agents and skills to ensure none were missed
 - **Ordering dependency:** US-007 must be completed before US-008, US-009, and US-010 (they depend on the consolidated `test-flow` existing)
@@ -450,7 +455,7 @@ US-007 (merge into test-flow)
 - Quality check pipeline defined in exactly 1 location (down from 4)
 - `adhoc-workflow/SKILL.md` reduced by ≥150 lines
 - `prd-workflow/SKILL.md` reduced by ≥100 lines
-- `builder.md` reduced by ≥20 lines
+- `builder.md` reduced by ≥40 lines
 - `isUIProject()` defined in exactly 1 location (down from 2)
 - E2E URL resolution defined in exactly 1 location (down from 3)
 - Zero behavioral differences between pre- and post-consolidation quality checks
