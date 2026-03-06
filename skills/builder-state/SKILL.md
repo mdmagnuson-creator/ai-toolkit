@@ -38,13 +38,13 @@ Write state atomically (read → modify → write) at these key moments:
 | Event | State Changes |
 |-------|---------------|
 | **Session start** | Set `sessionId`, `lastHeartbeat` |
-| **Enter ad-hoc mode** | Set `activeTask.analysisCompleted: false` (MANDATORY — see Analysis Gate section) |
-| **User approves analysis [G]** | Set `activeTask.analysisCompleted: true` |
-| **Claim PRD** | Set `activePrd` with PRD details (including `testingRigor`), clear old ad-hoc if any |
-| **Start story** | Update `activePrd.currentStory` |
-| **Resolve story intensity** | Write `activePrd.storyAssessments[storyId]` (`planned`, `effective`, `escalatedBy`) |
+| **Enter ad-hoc mode** | Set `activeWork.analysisCompleted: false` (MANDATORY — see Analysis Gate section) |
+| **User approves analysis [G]** | Set `activeWork.analysisCompleted: true` |
+| **Claim PRD** | Set `activeWork` with PRD details (mode: "prd", including `testingRigor`), clear old work if any |
+| **Start story** | Update `activeWork.currentStoryIndex` and set story status to `in_progress` |
+| **Resolve story intensity** | Update `activeWork.stories[]` with effective intensity (test-flow handles at runtime) |
 | **Complete story** | Move story from `storiesPending` to `storiesCompleted`, clear `currentStory` |
-| **Add ad-hoc task** | Append to `adhocQueue` with `status: "pending"` |
+| **Add ad-hoc task** | Set `activeWork` with mode: "adhoc" and task details |
 | **Start ad-hoc task** | Update task `status: "in_progress"` |
 | **Complete ad-hoc task** | Update task `status: "completed"`, `completedAt`, `filesChanged` |
 | **After every tool call** | Update `currentTask.lastAction`, `contextAnchor`, and `lastHeartbeat` |
@@ -60,7 +60,7 @@ Write state atomically (read → modify → write) at these key moments:
 
 ### Analysis Gate Checkpoint (MANDATORY — Compaction Resilient)
 
-> ⛔ **CRITICAL: `activeTask.analysisCompleted` is a mandatory checkpoint field.**
+> ⛔ **CRITICAL: `activeWork.analysisCompleted` is a mandatory checkpoint field.**
 >
 > This field serves as a technical backstop for the Analysis Gate guardrail.
 > Even if behavioral instructions are "forgotten" after context compaction, this field persists in the state file and is checked before every @developer delegation.
@@ -69,20 +69,20 @@ Write state atomically (read → modify → write) at these key moments:
 
 | Field | Type | Default | Description |
 |-------|------|---------|-------------|
-| `activeTask.analysisCompleted` | boolean | `false` | Whether user has approved the analysis via `[G] Go ahead` |
+| `activeWork.analysisCompleted` | boolean | `false` | Whether user has approved the analysis via `[G] Go ahead` |
 
 **Lifecycle:**
 
-1. **On entering ad-hoc mode:** Immediately write `activeTask.analysisCompleted: false`
+1. **On entering ad-hoc mode:** Immediately write `activeWork.analysisCompleted: false`
 2. **Before showing analysis dashboard:** Verify field is `false` (safety check)
-3. **After user responds with [G]:** Set `activeTask.analysisCompleted: true`
+3. **After user responds with [G]:** Set `activeWork.analysisCompleted: true`
 4. **Before ANY @developer delegation:** Read state file and verify `analysisCompleted === true`
-5. **On task completion:** Clear `activeTask` entirely
+5. **On task completion:** Clear `activeWork` entirely
 
 **Pre-delegation check (Builder runs this before every delegation):**
 
 ```bash
-ANALYSIS_COMPLETED=$(jq -r '.activeTask.analysisCompleted // false' docs/builder-state.json 2>/dev/null)
+ANALYSIS_COMPLETED=$(jq -r '.activeWork.analysisCompleted // false' docs/builder-state.json 2>/dev/null)
 echo "Analysis gate check: analysisCompleted=$ANALYSIS_COMPLETED"
 
 if [ "$ANALYSIS_COMPLETED" != "true" ]; then
@@ -253,31 +253,23 @@ Suggested state fields when tracking git context:
     "contextAnchor": "schemas/builder-state.schema.json",
     "rateLimitDetectedAt": null
   },
-  "activePrd": {
-    "prdId": "prd-error-logging",
+  "activeWork": {
+    "mode": "prd",
+    "source": { "prdId": "prd-error-logging" },
+    "branch": "feat/prd-error-logging",
+    "stories": [
+      { "id": "US-001", "description": "Setup error logging", "status": "completed", "filesChanged": ["ErrorLogger.ts"], "committedAt": "2026-02-20T14:30:00Z" },
+      { "id": "US-002", "description": "Add error boundary", "status": "completed", "filesChanged": ["ErrorBoundary.tsx"], "committedAt": "2026-02-20T15:00:00Z" },
+      { "id": "US-003", "description": "Integrate with monitoring", "status": "in_progress", "filesChanged": [] },
+      { "id": "US-004", "description": "Add retry logic", "status": "pending", "filesChanged": [] },
+      { "id": "US-005", "description": "Write E2E tests", "status": "pending", "filesChanged": [] }
+    ],
+    "currentStoryIndex": 2,
     "testingRigor": "standard",
-    "currentStory": "US-003",
-    "storiesPending": ["US-004", "US-005"],
-    "storiesCompleted": ["US-001", "US-002"],
-    "storyAssessments": {
-      "US-003": {
-        "planned": "medium",
-        "effective": "high",
-        "escalatedBy": ["cross-cutting-auth-change"],
-        "updatedAt": "2026-02-20T15:12:00Z"
-      }
-    }
+    "resolvedActivities": [],
+    "implementationDecisions": [],
+    "analysisCompleted": true
   },
-  "adhocQueue": [
-    {
-      "id": "adhoc-001",
-      "description": "Fix footer alignment",
-      "status": "completed",
-      "createdAt": "2026-02-20T14:00:00Z",
-      "completedAt": "2026-02-20T14:15:00Z",
-      "filesChanged": ["Footer.tsx", "Footer.css"]
-    }
-  ],
   "pendingTests": {
     "unit": {
       "generated": ["src/__tests__/Footer.test.tsx"],
@@ -347,19 +339,43 @@ cat docs/builder-state.json 2>/dev/null
 
 If using a file-read tool that throws on missing paths, first list `docs/` and only read `docs/builder-state.json` when present. Missing state is expected for first-time sessions and should be treated as `{}` without logging an error.
 
-**If state exists and is not stale:**
+### Old-Format Field Detection
+
+If `builder-state.json` contains old-format fields (`activePrd`, `activeTask`, `adhocQueue`) **without** an `activeWork` field:
+- Clear the old fields from state
+- Do NOT attempt backward-compatibility migration
+- Inform user: "Found legacy session state — cleared. Starting fresh."
+- Proceed to normal startup dashboard
+
+### activeWork Resume Protocol
+
+If `activeWork` exists with any story `status` that is not `completed`, `skipped`, or `cancelled`:
+
+1. **Reset interrupted stories:** Any story with `status: "in_progress"` → reset to `pending` (not resumable mid-story)
+2. **Handle failed stories first:** If any stories have `status: "failed"`, present each individually with per-story options:
+   - `[R] Retry` — reset to `pending`, clear `testFlowResult` and `filesChanged`
+   - `[S] Skip` — set to `skipped`
+   - `[A] Abort` — cancel all remaining non-completed stories, end session
+3. **Show Resume Dashboard** with updated statuses and main options:
+   - `[R] Resume` — continue from first `pending` story, enter Story Processing Pipeline
+   - `[A] Abort` — mark all `pending` stories as `cancelled`, clear `activeWork`
+   - `[S] Start fresh` — archive `activeWork` to `completedSessions[]`, clear `activeWork`, start new session
+
+**Key rules:**
+- Never auto-resume — always require explicit user choice
+- Resume enters the Story Processing Pipeline directly (no re-analysis)
+- The Resume Dashboard shows: mode (PRD/ad-hoc), source (prdId or taskId), branch, each story with status icon, progress summary, and files changed so far
+- After all stories complete (or are skipped/cancelled), `activeWork` is cleared
+
+### No activeWork Present
+
+**If state exists but `activeWork` is `null` or absent:**
 - Restore right-panel todos from `uiTodos.items` using `todowrite`
-- Present a chooser (do not auto-resume) with:
-  - Resume current in-progress PRD
-  - Select a different ready PRD
-  - Restart the in-progress PRD from story 1
-  - Handle pending project updates
-  - Switch to ad-hoc mode
-- Continue only after explicit user selection
+- Proceed to normal startup dashboard
 
 **If state is stale** (heartbeat older than timeout):
 - Warn: "Found stale session (last active: [time ago])"
-- Offer the same chooser, but label resume/restart as recovery options
+- Show the Resume Dashboard, but label resume/restart as recovery options
 
 ## Examples
 
@@ -369,8 +385,7 @@ If using a file-read tool that throws on missing paths, first list `docs/` and o
 {
   "sessionId": "builder-2026-02-20-abc123",
   "lastHeartbeat": "2026-02-20T15:00:00Z",
-  "activePrd": null,
-  "adhocQueue": [],
+  "activeWork": null,
   "pendingTests": {},
   "pendingUpdates": {},
   "uncommittedWork": null
@@ -383,13 +398,19 @@ If using a file-read tool that throws on missing paths, first list `docs/` and o
 {
   "sessionId": "builder-2026-02-20-abc123",
   "lastHeartbeat": "2026-02-20T15:30:00Z",
-  "activePrd": {
-    "prdId": "prd-error-logging",
-    "currentStory": "US-003",
-    "storiesPending": ["US-004", "US-005"],
-    "storiesCompleted": ["US-001", "US-002"]
+  "activeWork": {
+    "mode": "prd",
+    "source": { "prdId": "prd-error-logging" },
+    "stories": [
+      { "id": "US-001", "status": "completed" },
+      { "id": "US-002", "status": "completed" },
+      { "id": "US-003", "status": "in_progress" },
+      { "id": "US-004", "status": "pending" },
+      { "id": "US-005", "status": "pending" }
+    ],
+    "currentStoryIndex": 2,
+    "analysisCompleted": true
   },
-  "adhocQueue": [],
   "pendingTests": {
     "unit": {
       "generated": ["src/__tests__/ErrorLogger.test.ts"],
@@ -416,20 +437,16 @@ If using a file-read tool that throws on missing paths, first list `docs/` and o
 {
   "sessionId": "builder-2026-02-20-abc123",
   "lastHeartbeat": "2026-02-20T15:45:00Z",
-  "activePrd": {
-    "prdId": "prd-error-logging",
-    "currentStory": null,
-    "storiesPending": ["US-004", "US-005"],
-    "storiesCompleted": ["US-001", "US-002", "US-003"]
+  "activeWork": {
+    "mode": "adhoc",
+    "source": { "taskId": "adhoc-001" },
+    "pausedPrd": { "prdId": "prd-error-logging", "resumeAtStoryIndex": 3 },
+    "stories": [
+      { "id": "adhoc-001", "description": "Fix typo in footer", "status": "in_progress" }
+    ],
+    "currentStoryIndex": 0,
+    "analysisCompleted": true
   },
-  "adhocQueue": [
-    {
-      "id": "adhoc-001",
-      "description": "Fix typo in footer",
-      "status": "in_progress",
-      "createdAt": "2026-02-20T15:40:00Z"
-    }
-  ],
   "pendingTests": {
     "e2e": {
       "generated": ["e2e/error-logging.spec.ts"],

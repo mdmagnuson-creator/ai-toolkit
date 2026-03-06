@@ -1552,9 +1552,9 @@
           "properties": {
             "mode": {
               "type": "string",
-              "enum": ["playwright-required", "no-ui"],
+              "enum": ["playwright-required"],
               "default": "playwright-required",
-              "description": "playwright-required: Builder must verify UI changes with Playwright before marking complete. no-ui: Skip Playwright (for backends, CLIs, libraries)."
+              "description": "playwright-required: Builder must verify UI changes with Playwright before marking complete. All projects get full Playwright verification — the no-ui option has been removed."
             },
             "testBaseUrl": {
               "type": "string",

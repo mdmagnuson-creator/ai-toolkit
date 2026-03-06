@@ -1162,7 +1162,7 @@ When generating, replace placeholders with detected values:
 | `{{NO_MOCK_TARGETS}}` | Step 8d Q16 |
 | `{{E2E_SELECTOR_PRIORITY}}` | Step 8d Q17 |
 | `{{E2E_AUTH_PATTERN}}` | Step 8d Q18 |
-| `{{UI_VERIFICATION_MODE}}` | Step 8d Q19 (playwright-required or no-ui) |
+| `{{UI_VERIFICATION_MODE}}` | Step 8d Q19 (always `playwright-required` — all projects get full Playwright verification) |
 
 For sections that can't be auto-filled, leave the placeholder with a 
 `<!-- BOOTSTRAP NOTE: ... -->` comment explaining what to add.
@@ -1454,7 +1454,7 @@ Compile all detected and confirmed information into the manifest:
     "prReviewRequired": false,
     "workingDir": "ai-tmp",
     "verification": {
-      "mode": "<if has frontend: 'playwright-required', else: 'no-ui'>",
+      "mode": "playwright-required",
       "selectorStrategy": "strict",
       "testDir": "tests/ui-verify",
       "screenshotDir": "ai-tmp/verification/screenshots",

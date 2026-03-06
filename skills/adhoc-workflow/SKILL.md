@@ -172,9 +172,15 @@ Task Specs follow the **same lifecycle as PRDs** but in a parallel folder struct
 
 ```json
 {
-  "activeTask": {
-    "id": null,
+  "activeWork": {
+    "mode": "adhoc",
+    "source": { "taskId": null },
     "analysisCompleted": false,
+    "probeStatus": null,
+    "stories": [],
+    "currentStoryIndex": 0,
+    "resolvedActivities": [],
+    "implementationDecisions": [],
     "enteredAt": "2026-03-03T10:30:00Z"
   }
 }
@@ -302,7 +308,7 @@ If analysis times out, show what was found with note: "⚠️ Analysis may be in
 > These "ops-only" tasks can still have **runtime impact** that requires browser verification.
 >
 > **Trigger:** After Step 0.1 analysis completes.
-> **Evidence:** `taskType` written to `builder-state.json` → `activeTask.taskType`.
+> **Evidence:** `taskType` written to `builder-state.json` → `activeWork.taskType`.
 > **Failure behavior:** If task type is not classified, default to `source-change` (safest path).
 
 **Classification rules:**
@@ -333,7 +339,7 @@ Ask: "Was the user's original issue visible in the browser or app UI?"
 
 ```json
 {
-  "activeTask": {
+  "activeWork": {
     "taskType": "ops-with-runtime-impact",
     "runtimeImpact": "GitHub OAuth flow fails — edge function not deployed",
     "opsCommands": ["supabase secrets set", "supabase functions deploy"],
@@ -369,7 +375,6 @@ Ask: "Was the user's original issue visible in the browser or app UI?"
 > | "This is a backend/config change" | If no UI assertions exist, the probe is skipped via valid skip conditions — don't preemptively decide |
 >
 > **The ONLY valid skip conditions** are listed in `test-ui-verification` skill → "Skip Conditions":
-> - `agents.verification.mode: "no-ui"` in project.json
 > - Dev server unreachable (after attempting to start it)
 > - No page assertions generated (purely backend analysis)
 > - `agents.analysisProbe: false` in project.json (explicit user opt-out)
@@ -539,6 +544,224 @@ When the probe targets pages that require authentication, resolve auth **before*
 - ❌ Suggest the user run `/setup-auth` — Builder should run it itself
 - ❌ Fall back to probing only public pages without attempting all auth approaches first
 
+### Step 0.1c: Implementation Decision Detection (NEW)
+
+> **Purpose:** Surface implicit design/implementation decisions that the user should weigh in on before Builder proceeds. These aren't clarifications about *what* to build (that's Step 0.3) — they're decisions about *how* to build it well.
+>
+> **Trigger:** After Step 0.1b (Playwright probe) completes, before Step 0.2 (dashboard).
+>
+> **Uses:** Full analysis context — affected files, scope, request type, probe results, task type classification.
+>
+> **Output:** If decisions detected → show questions (see US-002 below). If none → silently skip.
+
+#### When to Skip (No Questions)
+
+Skip decision detection entirely — proceed directly to Step 0.1d — when the request is clearly trivial:
+
+| Skip Criterion | Examples |
+|----------------|----------|
+| Bug fix with clear root cause | "Fix the 404 on /settings", "Fix the null pointer in getUserById" |
+| Typo / copy correction | "Fix the typo in the header", "Change 'Submitt' to 'Submit'" |
+| Version bump / dependency update | "Update React to 18.3", "Bump Node to 20" |
+| Config-only change | "Change the timeout to 30s", "Update the API URL in .env" |
+| Ops-only task (taskType = `ops-only` or `ops-with-runtime-impact`) | "Deploy the edge functions", "Rotate the API keys" |
+| Single-file, single-behavior change with no variants | "Make the header sticky", "Hide the sidebar on mobile" |
+
+**Skip detection is autonomous** — Builder infers whether meaningful implementation decisions exist based on the request and analysis. There is no hardcoded list of "decision-rich" patterns.
+
+**When skipped:** No user-visible output. Flow proceeds directly from 0.1b to 0.1d. Record `implementationDecisions: null` in `builder-state.json` → `activeWork`.
+
+#### When to Detect Decisions
+
+Run decision detection when the request involves:
+
+- **Multiple reasonable implementation variants** — more than one experienced developer would reasonably choose a different approach
+- **UX behavior choices** — navigation, state persistence, validation timing, success/error handling, progressive disclosure
+- **Data lifecycle decisions** — soft delete vs hard delete, sync vs async, cache invalidation strategy, retry policy
+- **Component composition** — modal vs page, wizard vs form, inline vs overlay, tabs vs accordion
+- **Error handling strategy** — toast vs inline, retry vs fail, graceful degradation approach
+
+**Detection is autonomous.** Builder infers decisions from the analysis context:
+- Request complexity and affected file count
+- Whether the request implies multi-step user flows
+- Whether reasonable developers would implement it differently
+- Whether the code analysis reveals multiple valid patterns in the existing codebase
+
+**Detection MUST NOT use a hardcoded pattern catalog.** Builder reasons about decisions generically — the same way an experienced developer would think "before I build this, let me check what the user wants for X."
+
+#### Decision Detection Process
+
+1. **Review the analysis context:**
+   - Request text, affected files, scope estimate
+   - Probe results (existing UI patterns, component library)
+   - Task type classification
+
+2. **Identify implicit decisions** — things the request doesn't specify but that will significantly affect implementation quality. Focus on decisions where:
+   - The wrong choice causes rework (e.g., no state persistence → user wanted persistence → redo)
+   - Reasonable people would choose differently (e.g., per-step vs final-step validation)
+   - The user likely has an opinion but didn't think to state it
+
+3. **Filter out pre-resolved decisions** — if the user already specified a choice in their request text, do NOT surface it as a question. Builder detects pre-resolved decisions by checking the request text against each potential decision.
+
+4. **Include relevant `planning.considerations`** from `project.json`:
+
+   ```bash
+   jq '.planning.considerations' docs/project.json
+   ```
+
+   For each consideration:
+   - Check its `appliesWhen` tags against request characteristics (e.g., `["data-access", "crud"]` matches a request to create a new record type)
+   - If the consideration is relevant, include its `scopeQuestions` as additional decision questions
+   - Tag consideration-sourced questions with `source: "consideration:{id}"` (e.g., `source: "consideration:permissions"`) for traceability
+   - If `acceptanceCriteriaHints` exist on the consideration, store them — they'll be used in US-005 to generate acceptance criteria
+
+   Example `planning.considerations` in project.json:
+   ```json
+   {
+     "planning": {
+       "considerations": [
+         {
+           "id": "permissions",
+           "appliesWhen": ["data-access", "crud", "admin"],
+           "scopeQuestions": [
+             "Which roles can perform this action?",
+             "What happens on unauthorized access?"
+           ],
+           "acceptanceCriteriaHints": [
+             "Role-based access control is enforced for {action}",
+             "Unauthorized users see a 403 error with clear message"
+           ]
+         }
+       ]
+     }
+   }
+   ```
+
+   **Rules for consideration questions:**
+   - Consideration-sourced questions count toward the **5-question maximum**
+   - Request-specific (inferred) questions take priority over consideration-sourced questions
+   - If no `planning.considerations` exist in project.json, proceed normally with only inferred questions
+
+5. **Prioritize by implementation impact** — rank decisions by how much rework a wrong choice would cause. Keep only the highest-impact decisions (maximum 5). Request-specific questions are ranked first; consideration-sourced questions fill remaining slots.
+
+5. **Store detection results** in `builder-state.json`:
+
+```json
+{
+  "activeWork": {
+    "implementationDecisions": {
+      "detected": true,
+      "decisions": [
+        {
+          "id": "state-persistence",
+          "question": "Should wizard state persist so users can leave and resume later?",
+          "options": [
+            {"code": "A", "label": "Yes — save progress to localStorage/DB", "description": "Users can close the browser and resume later"},
+            {"code": "B", "label": "No — reset on page leave", "description": "Simpler implementation, wizard restarts if user navigates away"}
+          ],
+          "userChoice": null,
+          "source": "inferred"
+        }
+      ]
+    }
+  }
+}
+```
+
+If no decisions detected (or all were skipped), record:
+
+```json
+{
+  "activeWork": {
+    "implementationDecisions": null
+  }
+}
+```
+
+> **Proceed to Step 0.1c-questions** (below) if decisions were detected. Otherwise, proceed to Step 0.1d.
+
+#### Step 0.1c-questions: Design Decision Questions UI
+
+When decisions are detected, show them in a single-round question prompt:
+
+```
+═══════════════════════════════════════════════════════════════════════
+                     IMPLEMENTATION DECISIONS
+═══════════════════════════════════════════════════════════════════════
+
+I understand what you want — but a few design choices will affect
+how I build it. Quick answers help me get it right the first time.
+
+1. Should wizard state persist so users can leave and resume later?
+   A. Yes — save progress to localStorage/DB
+   B. No — reset on page leave
+
+2. Validate inputs per step or at the final step?
+   A. Per-step — each step validates before allowing Next
+   B. Final step — validate everything at submission
+
+3. Can users navigate backward through completed steps?
+   A. Yes — free navigation between steps
+   B. No — forward-only progression
+
+4. What happens after successful submission?
+   A. Redirect to the new project page
+   B. Show success toast and close modal
+   C. Show confirmation step, then close
+
+Reply with codes (e.g., "1A, 2A, 3A, 4B") or describe your preference.
+Type "you decide" to let me choose based on best practices.
+
+> _
+═══════════════════════════════════════════════════════════════════════
+```
+
+**Question rules:**
+- Maximum **5 questions** per request (prioritize highest-impact decisions)
+- Each question has **2-4 concrete options** with brief explanations
+- Questions are **specific and actionable** — not vague ("How should it work?")
+- User can reply with **letter codes** for speed (e.g., "1A, 2B, 3A")
+- User can reply **"you decide"** (or similar) — Builder proceeds with best judgment
+- **Single round only** — no follow-up questions after user answers
+- Decisions the user **already specified** in their request are **omitted entirely** (not shown)
+
+**After user responds:**
+
+1. **Parse answers** — letter codes or freeform descriptions
+2. **Store choices** in `builder-state.json` → `activeWork.implementationDecisions.decisions[].userChoice`
+3. **If "you decide"** — Builder selects best-practice defaults and records its choices with brief rationale
+4. **Proceed to Step 0.1d** with decisions resolved
+
+### Step 0.1d: Playwright Analysis Validation (NEW)
+
+> **Purpose:** Visually confirm that the code analysis matches the actual UI state before showing the dashboard. This catches stale analysis, wrong page assumptions, or misidentified components.
+>
+> **Trigger:** After Step 0.1c (implementation decisions) completes, before Step 0.2 (dashboard).
+>
+> **Applies to:** Every request — all projects get full Playwright verification.
+
+This step uses the same Playwright probe mechanism as Step 0.1b but with a different focus:
+
+- **Step 0.1b** probes to confirm the analysis findings (element existence, absence, state)
+- **Step 0.1d** validates the overall analysis makes sense visually — the right page, the right components, the right context
+
+**Process:**
+
+1. **Open the primary affected page(s)** in Playwright
+2. **Capture the current visual state** — compare against the analysis conclusions
+3. **Validate alignment** — do the affected components, scope, and suggested changes align with what's actually rendered?
+
+| Validation Result | Action |
+|-------------------|--------|
+| Analysis aligns with visual state | Proceed to Step 0.2 — record `visualValidation: "confirmed"` |
+| Minor discrepancies | Adjust analysis, note discrepancies in dashboard, proceed to Step 0.2 |
+| Major contradiction | Re-analyze from updated visual context, lower confidence if needed |
+
+4. **If dev server is not running:** Load `start-dev-server` skill and start it before probing
+5. **Results feed into dashboard:** The PROBE RESULTS section in Step 0.2 reflects both 0.1b and 0.1d findings
+
+> **Note:** If Step 0.1b already provided comprehensive visual confirmation, Step 0.1d may simply validate that no additional pages need checking. The step exists to ensure that the *complete* analysis (including any adjustments from design decisions in 0.1c) is visually grounded.
+
 ### Step 0.2: Show Analysis Dashboard
 
 Display results with progressive disclosure. **The pre-analysis screenshot from Step 0.0a MUST be attached.**
@@ -570,6 +793,12 @@ Proposed:
   ✅ /checkout → button[type='submit'] visible (confirmed)
   ✅ /checkout → .spinner absent (confirmed: no spinner yet)
   ✅ /checkout → button[type='submit'] enabled (confirmed)
+
+⚙️ IMPLEMENTATION DECISIONS                                    3 resolved
+───────────────────────────────────────────────────────────────────────
+  1. State persistence: No — reset on page leave (simpler, user chose 1B)
+  2. Validation timing: Per-step (user chose 2A)
+  3. Success behavior: Show toast and close modal (user chose 4B)
 
 🎯 SCOPE: Small (2 files, no breaking changes)
 
@@ -606,6 +835,7 @@ TSK-004: Add unit tests
 ═══════════════════════════════════════════════════════════════════════
 
 [G] Go ahead — create Task Spec and start
+[F] Show implementation flow chart
 [E] Edit/Clarify — refine understanding  
 [P] Promote to PRD — hand off to Planner
 [C] Cancel — abort this request
@@ -619,8 +849,8 @@ TSK-004: Add unit tests
 > - Offer options: `[R] Retry screenshot`, `[S] Skip screenshot (not recommended)`, `[C] Cancel`
 > - If user chooses `[S]`, proceed but note "⚠️ Analysis based on code only — visual state not verified"
 
-> ⚠️ **The Playwright probe is NOT optional for UI projects.** If probe was skipped:
-> - Show skip reason in dashboard (e.g., "no-ui project", "dev server not reachable")
+> ⚠️ **The Playwright probe is NOT optional.** If probe was skipped:
+> - Show skip reason in dashboard (e.g., "dev server not reachable", "no UI assertions")
 > - If probe was skipped due to a fixable issue (dev server), offer `[R] Retry probe`
 > - See `test-ui-verification` skill → "Skip Conditions" for valid skip reasons
 
@@ -637,6 +867,7 @@ TSK-004: Add unit tests
 - **Confidence:** HIGH (clear request) / MEDIUM (some ambiguity) / LOW (needs clarification)
 - **Scope:** Small (<5 files, no breaking changes) / Medium (5-15 files, minor impacts) / Large (15+ files, breaking changes)
 - **Consequences:** Collapsed if none; expanded if any exist
+- **Implementation Decisions:** Shown between PROBE RESULTS and SCOPE when decisions were resolved in Step 0.1c. Omitted entirely when no decisions were detected (Step 0.1c was skipped). Each decision shows the question summary, the user's choice, and brief rationale. If user chose "you decide", show Builder's choice with "(Builder's recommendation)" label.
 - **Recommended Approach:** Always shown as its own `✅ RECOMMENDED APPROACH` section; never listed inside Alternatives
 - **Alternatives:** Shown as `🔀 ALTERNATIVES` section with non-recommended options only; collapsed if no alternatives exist
 
@@ -644,9 +875,9 @@ TSK-004: Add unit tests
 
 | Confidence | Available Options |
 |------------|-------------------|
-| HIGH | `[G]` Go ahead, `[E]` Edit/Clarify, `[P]` Promote, `[C]` Cancel |
-| MEDIUM | `[Q]` Answer questions (mandatory), `[J]` Just do it, `[P]` Promote, `[C]` Cancel |
-| LOW | `[Q]` Answer questions (mandatory), `[J]` Just do it, `[P]` Promote, `[C]` Cancel |
+| HIGH | `[G]` Go ahead, `[F]` Flow chart, `[E]` Edit/Clarify, `[P]` Promote, `[C]` Cancel |
+| MEDIUM | `[Q]` Answer questions (mandatory), `[F]` Flow chart, `[J]` Just do it, `[P]` Promote, `[C]` Cancel |
+| LOW | `[Q]` Answer questions (mandatory), `[F]` Flow chart, `[J]` Just do it, `[P]` Promote, `[C]` Cancel |
 
 > ⛔ **CRITICAL: [G] is NOT shown for MEDIUM/LOW confidence.**
 >
@@ -675,6 +906,7 @@ There appears to be a caching issue but I need clarification:
 ═══════════════════════════════════════════════════════════════════════
 
 [Q] Answer clarifying questions — I'll ask about the specific issue
+[F] Show implementation flow chart
 [J] Just do it — proceed with my best interpretation
 [P] Promote to PRD — hand off to Planner
 [C] Cancel — abort this request
@@ -721,6 +953,7 @@ never deployed after the last migration.
 ═══════════════════════════════════════════════════════════════════════
 
 [G] Go ahead — execute ops commands and verify
+[F] Show implementation flow chart
 [E] Edit/Clarify — refine understanding
 [C] Cancel — abort this request
 
@@ -736,6 +969,64 @@ never deployed after the last migration.
 > - What behavior will be verified
 >
 > This prevents Builder from "forgetting" verification after ops commands complete.
+
+### Step 0.2a: Flow Chart Option ([F])
+
+When user selects `[F] Show implementation flow chart`, generate an ASCII flow chart showing the full implementation plan adapted to the specific stories from analysis.
+
+**Flow chart format:**
+
+```
+═══════════════════════════════════════════════════════════════════════
+                      IMPLEMENTATION FLOW CHART
+═══════════════════════════════════════════════════════════════════════
+
+  4 stories │ Story Processing Pipeline (per story)
+  ──────────┤
+            │
+  ┌─────────────────────────────────────────────────┐
+  │ TSK-001: Add loading state to SubmitButton       │
+  │   implement → test-flow → auto-commit            │
+  └──────────────────────┬──────────────────────────┘
+                         │
+  ┌─────────────────────────────────────────────────┐
+  │ TSK-002: Show Spinner when loading               │
+  │   implement → test-flow → auto-commit            │
+  └──────────────────────┬──────────────────────────┘
+                         │
+  ┌─────────────────────────────────────────────────┐
+  │ TSK-003: Disable button during submission        │
+  │   implement → test-flow → auto-commit            │
+  └──────────────────────┬──────────────────────────┘
+                         │
+  ┌─────────────────────────────────────────────────┐
+  │ TSK-004: Add unit tests                          │
+  │   implement → test-flow → auto-commit            │
+  └─────────────────────────────────────────────────┘
+
+  Pipeline per story:
+    1. Set status → in_progress
+    2. Delegate to @developer
+    3. Run test-flow (typecheck → lint → test → Playwright → fix loop)
+    4. Auto-commit (mandatory, unconditional)
+    5. Update status → completed
+    6. Advance to next story
+
+═══════════════════════════════════════════════════════════════════════
+```
+
+**Adaptation rules:**
+
+| Scenario | Flow chart behavior |
+|----------|-------------------|
+| Single story | One box, no connecting lines |
+| Multi-story (no deps) | Vertical sequence with `│` connectors |
+| Stories with dependencies | Show dependency arrows (if noted in PRD/Task Spec) |
+| PRD mode | Use `US-XXX` prefixes instead of `TSK-XXX` |
+
+**After viewing the flow chart**, return to the same ANALYSIS COMPLETE dashboard with all original options (`[G]`, `[F]`, `[E]`, `[P]`, `[C]`, etc.).
+
+> ℹ️ **Available in both PRD and ad-hoc modes.** In PRD mode, the flow chart can be shown at story list review time — Builder generates it from the PRD's story list using the same format.
 
 ### Step 0.3: Clarifying Questions (MANDATORY for MEDIUM/LOW)
 
@@ -804,6 +1095,7 @@ Fix browser cache issue in ProductList component:
 ═══════════════════════════════════════════════════════════════════════
 
 [G] Go ahead — create Task Spec and start
+[F] Show implementation flow chart
 [E] Edit/Clarify — refine understanding  
 [P] Promote to PRD — hand off to Planner
 [C] Cancel — abort this request
@@ -892,6 +1184,20 @@ during form submission, disabled state to prevent double-submit.
 
 **Consequences:** None identified
 
+### Implementation Decisions
+
+*(This section is included when design decisions were resolved in Step 0.1c. Omit when no decisions were detected.)*
+
+| Decision | User's Choice | Impact |
+|----------|--------------|--------|
+| State persistence | No — reset on page leave (1B) | Simpler implementation, no localStorage/DB needed |
+| Validation timing | Per-step (2A) | Each wizard step validates before Next |
+| Success behavior | Toast and close modal (4B) | No redirect, modal dismisses with confirmation toast |
+
+*Source: consideration:permissions — "Which roles can perform this action?" → Admin only*
+
+> **Decisions flow to acceptance criteria:** Each resolved decision that implies a specific behavior generates an acceptance criterion on the relevant story below. Consideration-sourced decisions also use `acceptanceCriteriaHints` from project.json when available.
+
 ## Stories
 
 ### TSK-001: Add loading state to SubmitButton component
@@ -959,7 +1265,7 @@ during form submission, disabled state to prevent double-submit.
 3. **Move to ready and start:**
    - Move file from `docs/tasks/drafts/` to `docs/tasks/`
    - Update status to `ready` in registry
-   - Update `builder-state.json` with `activeTask` and **set `analysisCompleted: true`**
+   - Update `builder-state.json` with `activeWork` and **set `analysisCompleted: true`**
    - Proceed to Phase 1
 
 > ⚠️ **CRITICAL: Only set `analysisCompleted: true` after user responds with [G] Go ahead.**
@@ -977,11 +1283,16 @@ Update `builder-state.json`:
 
 ```json
 {
-  "activePrd": null,
-  "activeTask": {
-    "id": "task-2026-03-01-add-spinner",
-    "currentStory": "TSK-001",
-    "completedStories": [],
+  "activeWork": {
+    "mode": "adhoc",
+    "source": { "taskId": "task-2026-03-01-add-spinner" },
+    "stories": [
+      { "id": "TSK-001", "description": "Add loading state", "status": "in_progress" },
+      { "id": "TSK-002", "description": "Show Spinner", "status": "pending" },
+      { "id": "TSK-003", "description": "Disable button", "status": "pending" },
+      { "id": "TSK-004", "description": "Add unit tests", "status": "pending" }
+    ],
+    "currentStoryIndex": 0,
     "analysisCompleted": true
   },
   "uiTodos": {
@@ -996,7 +1307,7 @@ Update `builder-state.json`:
 }
 ```
 
-> ⛔ **Before ANY @developer delegation, verify `activeTask.analysisCompleted === true`.**
+> ⛔ **Before ANY @developer delegation, verify `activeWork.analysisCompleted === true`.**
 >
 > If not true, STOP and show the analysis dashboard first.
 
@@ -1006,212 +1317,18 @@ Update right panel todos via `todowrite` to match.
 
 ## Per-Task Quality Checks (MANDATORY)
 
-> ⛔ **Quality checks run automatically after EVERY story. No prompts, no skipping.**
+> 📚 **SKILL: test-flow** → "Skip Gate → Activity Resolution → Quality Check Pipeline"
 >
-> **Trigger:** After @developer completes each story.
+> Load the `test-flow` skill for the complete quality check pipeline that runs after every story completion.
+> It includes skip-gate logic, activity resolution, typecheck/lint/test/rebuild/critic/Playwright,
+> and the completion prompt. **No prompts, no skipping** — test-flow runs automatically.
+>
+> **Ad-hoc context to pass:**
+> - `mode: "adhoc"` — 3-attempt retry strategy (vs PRD's 5-attempt)
+> - `taskId` and `storyId` from `builder-state.json` → `activeWork`
+> - `taskSpecPath` for acceptance criteria reference
 >
 > **Failure behavior:** If any check fails after 3 fix attempts, STOP and report to user.
-
-After @developer completes each story, Builder automatically runs:
-
-| Step | Check | Command | Fix loop |
-|------|-------|---------|----------|
-| 1 | **Typecheck** | `npm run typecheck` (or project equivalent) | Yes, max 3 attempts |
-| 2 | **Lint** | `npm run lint` (or project equivalent) | Yes, max 3 attempts |
-| 3 | **Unit tests** | `CI=true npm test` (MUST include CI=true) | Yes, max 3 attempts |
-| 3.5 | **Rebuild/Relaunch** | Architecture-aware rebuild (see below) | Yes, max 3 attempts |
-| 4 | **Critic** | Run @critic for code review | Report findings, @developer fixes |
-| 5 | **UI Verification** | Playwright browser verification (if required) | Yes, max 3 attempts |
-
-> ⚠️ **CI=true is MANDATORY for test commands.**
->
-> Without CI=true, test runners (Vitest, Jest) may start in **watch mode** and become orphaned processes consuming CPU indefinitely.
->
-> **Correct:** `CI=true npm test`
-> **Wrong:** `npm test` (may trigger watch mode)
-
-### Architecture-Aware Rebuild/Relaunch (Step 3.5)
-
-> 🏗️ **After unit tests pass, BEFORE critic/UI verification, check if a rebuild is needed.**
->
-> This step is auto-inferred from `apps[]` in `project.json`. If `postChangeWorkflow` exists, use it instead.
-
-```
-After unit tests pass (step 3):
-    │
-    ▼
-Read apps[] from project.json
-    │
-    ├── No apps[] or web-only → Skip rebuild, continue to step 4
-    │
-    ├── Desktop + webContent: "bundled" or "hybrid":
-    │   1. Run build command (commands.build or apps[].commands.build)
-    │   2. Kill existing Electron process
-    │   3. Relaunch Electron (apps[].commands.dev or commands.dev)
-    │   4. Wait for app ready
-    │   5. Continue to step 4 (critic) then step 5 (Playwright-Electron verify)
-    │
-    └── Desktop + webContent: "remote":
-        1. Ensure Electron process is running (launch if not)
-        2. No rebuild needed (HMR via dev server handles code changes)
-        3. Continue to step 4 (critic) then step 5 (Playwright-Electron verify)
-
-CRITICAL: Desktop apps ALWAYS use Playwright-Electron for step 5, never browser-based verification.
-```
-
-**Override:** If `postChangeWorkflow` exists in `project.json`, execute its `steps[]` in order instead of auto-inference.
-
-### UI Verification Enforcement
-
-> 🎯 **For UI projects, UI changes MUST be browser-verified.**
->
-> **Trigger:** After steps 1-4 pass, check if this is a UI project.
->
-> **Detection (any of these = UI project):**
-> 1. `postChangeWorkflow.steps[]` has a step with `playwright` in name or command
-> 2. `apps.*.testing.framework` contains `playwright`
-> 3. `apps.*.type` is `frontend` or `desktop`
->
-> **Explicit opt-out:** `agents.verification.mode: "no-ui"` skips verification.
->
-> **Failure behavior:** If verification status is `unverified`, BLOCK story completion.
-
-**Verification flow:**
-
-```
-Steps 1-4 pass
-    │
-    ▼
-┌─────────────────────────────────────────────────────────────────────┐
-│ Check if UI verification required:                                   │
-│                                                                     │
-│ Check 1: agents.verification.mode == "no-ui" → Skip                 │
-│                                                                     │
-│ Check 2: Is this a UI project?                                       │
-│   • postChangeWorkflow has Playwright step → Continue                │
-│   • apps.*.testing.framework has Playwright → Continue               │
-│   • apps.*.type is frontend/desktop → Continue                       │
-│   • None of the above → Skip verification                           │
-│                                                                     │
-│ Check changed files against SKIP PATTERNS:                          │
-│   • *.md (documentation) → Skip with reason                         │
-│   • .*rc, *.config.* (config) → Skip with reason                   │
-│   • *.test.*, *.spec.* (test files) → Skip with reason             │
-│   • .github/* (CI/CD) → Skip with reason                           │
-│   • No UI files (*.tsx, *.jsx, *.vue) → Skip with reason           │
-│   • Has UI files → REQUIRE verification                             │
-└─────────────────────────────────────────────────────────────────────┘
-    │
-    ▼ (verification required)
-┌─────────────────────────────────────────────────────────────────────┐
-│ Run UI verification:                                                 │
-│                                                                     │
-│ 1. Invoke @e2e-playwright with mode: "verification"                 │
-│ 2. Generate test in tests/ui-verify/                                │
-│ 3. Run test, capture screenshot                                     │
-│ 4. Return verification status                                       │
-└─────────────────────────────────────────────────────────────────────┘
-    │
-    ├─── status: "verified" ──► Proceed to completion prompt
-    │
-    ├─── status: "unverified" ──► BLOCK story completion
-    │                              │
-    │                              ▼
-    │                    ┌─────────────────────────┐
-    │                    │ Verification Required   │
-    │                    │                         │
-    │                    │ [R] Retry verification  │
-    │                    │ [S] Skip (adds debt)    │
-    │                    │ [M] Fix manually        │
-    │                    └─────────────────────────┘
-    │
-    └─── status: "skipped" ──► WARN, add to test-debt.json, proceed
-```
-
-#### Skip Patterns
-
-When ALL changed files match skip patterns, verification is automatically skipped:
-
-| Pattern | Example Files | Skip Reason |
-|---------|---------------|-------------|
-| `*.md` | `README.md`, `docs/guide.md` | Documentation changes don't affect UI |
-| `.*rc`, `*.config.*` | `.eslintrc`, `tailwind.config.js` | Config changes require rebuild, not visual test |
-| `*.test.*`, `*.spec.*` | `Button.test.tsx`, `api.spec.ts` | Test files don't render in browser |
-| `.github/*` | `.github/workflows/ci.yml` | CI/CD changes don't affect UI |
-| Non-UI extensions | `*.go`, `*.py`, `*.sql` | Backend files don't affect UI |
-
-**Skip reason in completion message:**
-
-```
-✅ STORY COMPLETE
-
-Summary: Updated API documentation
-
-Verification: ➖ SKIPPED (auto)
-  Reason: All changed files are documentation (*.md)
-  Files: README.md, docs/api-guide.md
-
-Files changed: 2
-```
-
-#### Override Mechanism
-
-Users can override verification requirements with explicit reason:
-
-**To force verification when skipped:**
-```
-User: verify anyway
-
-Builder: Running UI verification for documentation changes...
-         (Normally skipped, but you requested manual verification)
-```
-
-**To skip verification when required:**
-```
-User: mark complete without verification
-
-Builder: ⚠️ OVERRIDE REQUESTED
-
-         This bypasses mandatory verification for UI changes.
-         Reason required: _
-
-User: component is behind a feature flag that's disabled
-
-Builder: ⚠️ SKIPPING VERIFICATION (user override)
-
-         Reason: Component behind disabled feature flag
-         Files: src/components/FeatureFlagged.tsx
-         
-         Recommendation: Verify manually when feature flag is enabled.
-         
-         Added to test-debt.json with:
-         - overrideReason: "Component behind disabled feature flag"
-         - requiresFollowUp: true
-```
-
-**Verification required prompt (when blocked):**
-
-```
-═══════════════════════════════════════════════════════════════════════
-                  ⚠️ UI VERIFICATION REQUIRED
-═══════════════════════════════════════════════════════════════════════
-
-This story modified UI components that require browser verification:
-  • src/components/SubmitButton.tsx
-
-Verification status: UNVERIFIED
-
-The verification test failed after 3 attempts:
-  ❌ Element [data-testid="submit-spinner"] not found
-
-Options:
-  [R] Retry verification (after manual fix)
-  [S] Skip verification (adds to test-debt.json)
-  [M] Debug with @developer
-
-> _
-═══════════════════════════════════════════════════════════════════════
-```
 
 **After all checks pass**, show the story completion prompt (see Step 1.4 below).
 
@@ -1274,78 +1391,26 @@ Requirements:
 - Ensure typecheck passes
 ```
 
-4. **Run quality checks** (automatic — see [Per-Task Quality Checks](#per-task-quality-checks-mandatory) above)
+4. **Run quality checks** (automatic — load `test-flow` skill, see [Per-Task Quality Checks](#per-task-quality-checks-mandatory) above)
 5. **Mark story complete** — update todos, registry, Task Spec file
 6. **Update scope estimate** — check if scope is growing
 
 ### Step 1.2a: Post-Ops Verification Checkpoint (ops-only tasks)
 
-> ⛔ **CRITICAL: Ops-only tasks with runtime impact MUST run Playwright verification.**
+> 📚 **SKILL: test-flow** → "Skip Gate" (taskType routing)
 >
-> When `taskType` is `ops-with-runtime-impact`, the standard per-task quality checks (typecheck, lint, unit tests)
-> won't fire because no source files changed. But the fix still affects browser-visible behavior.
+> For ops-only tasks, `test-flow` handles the taskType-based routing automatically:
 >
-> **Trigger:** After ops commands complete successfully AND `taskType == "ops-with-runtime-impact"`.
-> **Failure behavior:** If Builder completes ops commands and declares "done" without running Playwright, the task is NOT verified.
-
-**This step replaces the standard quality checks for ops-only tasks:**
-
-```
-Ops commands complete
-    │
-    ▼
-Read taskType from builder-state.json
-    │
-    ├── taskType: "source-change"
-    │   └── Standard flow: @developer delegation → quality checks (Step 1.2 above)
-    │
-    ├── taskType: "ops-with-runtime-impact"
-    │   │
-    │   ▼
-    │   Skip: typecheck, lint, unit tests, rebuild (no source changes)
-    │   │
-    │   ▼
-    │   Run Playwright verification against the affected behavior:
-    │   1. Read verificationTarget from builder-state.json
-    │   2. Write or identify existing Playwright test for the target behavior
-    │   3. Execute Playwright test (use postChangeWorkflow Playwright step or direct invocation)
-    │   4. If test passes → mark verified, proceed to completion
-    │   5. If test fails → diagnose: is it a test issue or did the ops fix not work?
-    │      - Retry up to 3 times with fix attempts
-    │      - After 3 failures: STOP, report to user
-    │   │
-    │   ▼
-    │   Show story completion with ops-specific detail:
-    │   ┌─────────────────────────────────────────────────────────────┐
-    │   │ ✅ TASK COMPLETE                                            │
-    │   │                                                             │
-    │   │ Ops commands executed:                                      │
-    │   │   ✅ supabase secrets set (14 secrets)                      │
-    │   │   ✅ supabase functions deploy (10 functions)               │
-    │   │                                                             │
-    │   │ Verification:                                               │
-    │   │   ✅ Playwright: OAuth flow returns valid URL                │
-    │   │                                                             │
-    │   │ Source changes: None                                        │
-    │   │ Commits: None needed                                        │
-    │   └─────────────────────────────────────────────────────────────┘
-    │
-    └── taskType: "ops-only"
-        └── No verification needed. Mark complete after ops commands succeed.
-```
-
-**Writing Playwright tests for ops verification:**
-
-When no existing test covers the affected behavior, Builder writes a targeted Playwright test:
-
-| Ops Task | Test Target | Example Assertion |
-|----------|-------------|-------------------|
-| Deploy edge functions | Function endpoint responds | `expect(response.status()).toBe(200)` |
-| Set secrets / env vars | Feature that uses the secret | Navigate to feature → verify no error |
-| Deploy infrastructure | Dependent app behavior | Feature that uses the infra is functional |
-| Database migration (remote) | App reads migrated data correctly | Navigate to page → verify data renders |
-
-The test should verify the **user-visible behavior** that was broken, not just that the ops command succeeded. A `curl 200` is NOT sufficient when the original issue was browser-visible.
+> | taskType | test-flow behavior |
+> |----------|-------------------|
+> | `source-change` | Standard pipeline: typecheck → lint → test → rebuild → critic → Playwright |
+> | `ops-with-runtime-impact` | Skip typecheck/lint/test/rebuild → run Playwright only against `verificationTarget` |
+> | `ops-only` | Skip all checks → mark complete |
+>
+> **Trigger:** After ops commands complete, load `test-flow` with taskType context from `builder-state.json`.
+> test-flow reads `verificationTarget` and writes/runs targeted Playwright tests for `ops-with-runtime-impact` tasks.
+>
+> **Failure behavior:** If Builder completes ops commands and declares "done" without running test-flow, the task is NOT verified.
 
 ### Step 1.3: Scope Growth Warning
 
@@ -1437,9 +1502,13 @@ Insert after the specified story (US-002 in this example).
 
 ```json
 {
-  "activePrd": {
-    "id": "prd-user-settings",
-    "currentStory": "US-002",
+  "activeWork": {
+    "mode": "prd",
+    "source": { "prdId": "prd-user-settings" },
+    "stories": [
+      { "id": "US-002", "status": "in_progress" }
+    ],
+    "currentStoryIndex": 0,
     "injectedTasks": ["TSK-001"]
   }
 }
@@ -1543,7 +1612,7 @@ Add visual loading feedback to SubmitButton component:
 | Verification Status | ✅ Yes | Per-story: verified / skipped / not-required |
 | Screenshots Captured | ✅ Yes | Paths to any screenshots taken (empty if none) |
 | Commits Made | ✅ Yes | Git log for this task (hash + message) |
-| Time Taken | ✅ Yes | From activeTask.startedAt to now |
+| Time Taken | ✅ Yes | From activeWork.source.startedAt to now |
 
 ### Step 2: Archive Task Spec
 
@@ -1560,7 +1629,7 @@ Add visual loading feedback to SubmitButton component:
 **Summary:** Added loading spinner to SubmitButton with isLoading prop, Spinner component, and disabled state during submission.
 ```
 
-4. Clear `activeTask` from `builder-state.json`
+4. Clear `activeWork` from `builder-state.json`
 
 ---
 
@@ -1592,7 +1661,7 @@ Revert uncommitted changes?
 1. If [Y]: `git checkout -- .` to discard uncommitted changes
 2. Move Task Spec to `docs/tasks/abandoned/`
 3. Update registry with `status: abandoned`, `abandonedAt`, `abandonReason`
-4. Clear `activeTask` from `builder-state.json`
+4. Clear `activeWork` from `builder-state.json`
 5. Notify: "Task abandoned. You can resume later with `resume task-2026-03-01-add-spinner`"
 
 ### Resuming Abandoned Task:
@@ -1601,7 +1670,7 @@ When user says "resume task-2026-03-01-add-spinner":
 
 1. Move Task Spec from `docs/tasks/abandoned/` to `docs/tasks/`
 2. Update registry with `status: in_progress`
-3. Update `activeTask` in `builder-state.json`
+3. Update `activeWork` in `builder-state.json`
 4. Resume from first incomplete story
 
 ---
@@ -1691,7 +1760,7 @@ Completed work (2 stories):
 ### Step 3: Update State
 
 1. Update Task Spec registry: `status: promoted`, `promotedTo: null` (set when PRD created)
-2. Clear `activeTask` from `builder-state.json`
+2. Clear `activeWork` from `builder-state.json`
 3. Notify: "Promotion request created. Run @planner to continue."
 
 ---
@@ -1780,7 +1849,7 @@ Task-Spec: task-2026-03-01-add-spinner"
 
 1. Clear test checkpoints
 2. Archive Task Spec to `docs/tasks/completed/`
-3. Clear `activeTask` from `builder-state.json`
+3. Clear `activeWork` from `builder-state.json`
 
 ---
 
@@ -1855,7 +1924,7 @@ TSK-002: Show Spinner
 TSK-003: Disable button
 TSK-004: Add unit tests
 
-[G] Go ahead | [E] Edit | [P] Promote to PRD | [C] Cancel
+[G] Go ahead | [F] Flow chart | [E] Edit | [P] Promote to PRD | [C] Cancel
 
 > _
 

@@ -103,7 +103,7 @@ Track reassignment attempts in `builder-state.json`:
         "retryCount": 0
       }
     ],
-    "checkpointRef": "activePrd.checkpoint"
+    "checkpointRef": "activeWork.checkpoint"
   }
 }
 ```
