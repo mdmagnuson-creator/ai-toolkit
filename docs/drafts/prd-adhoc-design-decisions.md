@@ -460,6 +460,201 @@ US-007 (merge into test-flow)
 - E2E URL resolution defined in exactly 1 location (down from 3)
 - Zero behavioral differences between pre- and post-consolidation quality checks
 
-## Credential & Service Access Plan
+## Credential & Service Access Plan (Parts 1 & 2)
+
+No external credentials required for this PRD.
+
+---
+
+# Part 3: Unified Story Pipeline & State Model
+
+## Problem Statement
+
+Builder currently has two execution paths — PRD mode and ad-hoc mode — with different state shapes, different story processing logic, and different quality check behavior. This creates three problems:
+
+### 1. Divergent pipelines
+
+PRD mode follows: implement → quality checks → auto-commit per story, with story state tracked in `activePrd.stories[]`.
+
+Ad-hoc mode has a looser flow defined in `adhoc-workflow/SKILL.md`, with state tracked in a flat `activeTask` object and a separate `adhocQueue[]`.
+
+The quality check pipeline is being consolidated in Part 2, but the *story processing* pipeline that wraps it is still different between modes.
+
+### 2. Session resumability gap
+
+When a session is interrupted (context compaction, rate limit, crash), the resuming session needs to know:
+- What stories exist and their order
+- Which story was in progress
+- What files were changed
+- Whether quality checks passed
+
+For PRD mode, `activePrd` captures this reasonably well. For ad-hoc mode, `activeTask` is flat and minimal — it doesn't track per-story state the same way, even though Task Specs can generate multiple stories.
+
+### 3. Auto-commit inconsistency
+
+Auto-commit after each story is currently a configuration option (`git.autoCommit: onStoryComplete`) that agents must remember to check. It should be a mandatory step in the pipeline — not a conditional behavior that varies by mode or agent memory.
+
+### Current state shape (3 separate mechanisms)
+
+```
+builder-state.json
+├── activePrd           # PRD work: id, file, branch, currentStory,
+│                       #   storiesCompleted[], storiesPending[],
+│                       #   resolvedActivities, storyAssessments
+├── activeTask          # Ad-hoc work: id, currentStory,
+│                       #   completedStories[], analysisCompleted
+└── adhocQueue[]        # Queue of ad-hoc items: id, description,
+                        #   status, analysisCompleted, filesChanged[]
+```
+
+Three different shapes, three different tracking mechanisms, different resume semantics.
+
+## Goals (Part 3)
+
+11. **Unified state model:** Single `activeWork` object that tracks both PRD and ad-hoc sessions with the same story state shape
+12. **Mandatory story pipeline:** A single pipeline defined in `builder.md` that runs identically for every story regardless of source — implement → test-flow → auto-commit
+13. **Flow chart option:** Users can request an ASCII flow chart of the full implementation plan before approving, so they understand what Builder will do
+14. **Session resumability:** Any interrupted session (PRD or ad-hoc) can be resumed by reading `activeWork` and picking up the next incomplete story
+
+## Non-Goals (Part 3)
+
+- Changing how stories are *generated* (PRD has them upfront from Planner, ad-hoc generates them from Task Spec analysis) — only how they're *processed*
+- Removing the Task Spec analysis phase for ad-hoc mode — that stays as-is
+- Changing the PRD lifecycle (draft → ready → in-progress → complete) — that's Planner's domain
+- Migrating historical `builder-state.json` files — new sessions use the new shape, old sessions continue with old shape until naturally completed
+
+---
+
+## User Stories (Part 3: Unified Pipeline & State)
+
+### US-013: Unified activeWork State Model
+
+**Description:** As builder-state.json, the three separate work-tracking mechanisms (`activePrd`, `activeTask`, `adhocQueue`) are replaced with a single `activeWork` object that uses the same story state shape regardless of source.
+
+**Acceptance Criteria:**
+
+- [ ] New `activeWork` object in `builder-state.schema.json` with structure:
+  ```json
+  {
+    "activeWork": {
+      "mode": "prd | adhoc",
+      "source": {
+        "prdId": "prd-calendar-recurring",
+        "prdFile": "docs/prds/...",
+        "taskId": "task-2026-03-01-...",
+        "analysisCompleted": true
+      },
+      "branch": "main",
+      "stories": [
+        {
+          "id": "US-001",
+          "description": "...",
+          "status": "completed | in_progress | pending | failed | skipped",
+          "filesChanged": [],
+          "testFlowResult": "pass | fail | skipped | null",
+          "committedAt": "iso-timestamp | null",
+          "commitHash": "abc123 | null"
+        }
+      ],
+      "currentStoryIndex": 0,
+      "resolvedActivities": {},
+      "implementationDecisions": {}
+    }
+  }
+  ```
+- [ ] `activePrd`, `activeTask`, and `adhocQueue` marked as deprecated in the schema (kept for backward compatibility but not used by new sessions)
+- [ ] Builder reads `activeWork` on session resume to determine where to pick up
+- [ ] If `activeWork` is null but `activePrd` or `activeTask` exists, Builder treats it as a legacy session and processes using old logic (graceful migration)
+- [ ] Each story has a `status` field that the pipeline updates as it progresses
+- [ ] Each story tracks `filesChanged`, `testFlowResult`, `committedAt`, and `commitHash` for full audit trail
+- [ ] Validate scripts pass
+
+### US-014: Mandatory Story Processing Pipeline in builder.md
+
+**Description:** As builder.md, I define a single mandatory story processing pipeline that runs identically for every story regardless of whether the source is a PRD or ad-hoc Task Spec. This pipeline is the canonical definition of "how Builder processes one story."
+
+**Acceptance Criteria:**
+
+- [ ] `builder.md` contains a new "Story Processing Pipeline (MANDATORY)" section with this exact sequence:
+  1. **Set story status** → `in_progress` in `activeWork.stories[n]`
+  2. **Delegate implementation** → @developer with story context
+  3. **Run test-flow** → unconditional (test-flow owns skip-gate, pipeline, retry)
+  4. **Auto-commit** → mandatory after test-flow passes, using story ID in commit message
+  5. **Update story status** → `completed` with `committedAt`, `commitHash`, `testFlowResult`
+  6. **Advance to next story** → increment `currentStoryIndex`
+- [ ] Pipeline is marked MANDATORY — no agent may skip steps or reorder them
+- [ ] Auto-commit is unconditional — not gated on `git.autoCommit` setting (auto-commit is always `onStoryComplete` for the pipeline; the `git.autoCommit` setting only affects *additional* commit granularity like `onFileChange`)
+- [ ] If test-flow fails and exhausts retries, story status is set to `failed` and pipeline stops — Builder reports failure to user
+- [ ] If implementation fails (developer returns error), story status is set to `failed` and pipeline stops
+- [ ] Pipeline handles the loop: `for each story in activeWork.stories where status == "pending"`
+- [ ] The existing scattered pipeline definitions in `adhoc-workflow` and `prd-workflow` are replaced with references to this canonical pipeline
+- [ ] Validate scripts pass
+
+### US-015: Flow Chart Dashboard Option
+
+**Description:** As a user, I can choose a "show me a flow chart" option on the ANALYSIS COMPLETE dashboard, and Builder generates an ASCII flow chart of the full implementation plan — stories, pipeline steps, and overall flow — so I can understand what's about to happen before approving.
+
+**Acceptance Criteria:**
+
+- [ ] New option added to the ANALYSIS COMPLETE dashboard: `[F] Show implementation flow chart`
+- [ ] Flow chart shows: all stories in order, per-story pipeline (implement → test → commit), dependencies between stories if any, and total story count
+- [ ] Flow chart uses ASCII art (box-drawing characters) — same style as existing dashboard formatting
+- [ ] After viewing the flow chart, user returns to the dashboard with the same options ([G], [P], [F], etc.)
+- [ ] Flow chart adapts to the actual stories generated — not a generic template, but reflects the specific stories from analysis
+- [ ] For single-story tasks, flow chart is simple (one box); for multi-story tasks, flow chart shows the full sequence
+- [ ] Option is available in both PRD and ad-hoc modes (since both now use the same pipeline)
+- [ ] Validate scripts pass
+
+### US-016: Session Resume from activeWork
+
+**Description:** As Builder, when I start a new session and find an existing `activeWork` with incomplete stories, I resume from the first incomplete story — regardless of whether the work originated from a PRD or ad-hoc request.
+
+**Acceptance Criteria:**
+
+- [ ] On session start, Builder checks `builder-state.json` → `activeWork`
+- [ ] If `activeWork` exists with any story status != `completed`:
+  - Show resume dashboard with: mode (PRD/ad-hoc), stories completed vs remaining, last story's status, files changed so far
+  - User can [R] Resume, [A] Abort (mark remaining as cancelled), or [S] Start fresh (archive current work)
+- [ ] Resume starts from the first story with status `pending` or `failed` (retry failed stories)
+- [ ] If story status is `in_progress` (interrupted mid-implementation), Builder re-runs the full pipeline for that story from the beginning (implementation is not resumable mid-story)
+- [ ] Legacy sessions (`activePrd` or `activeTask` without `activeWork`) show the existing resume behavior
+- [ ] Validate scripts pass
+
+---
+
+## Functional Requirements (Part 3)
+
+- FR-19: `activeWork` MUST use an identical story state shape for both PRD and ad-hoc modes — the only difference is `source.mode`
+- FR-20: The story processing pipeline (implement → test-flow → auto-commit → advance) MUST be defined once in `builder.md` and referenced by both modes
+- FR-21: Auto-commit after each story MUST be mandatory and unconditional — not gated on `git.autoCommit` configuration
+- FR-22: Session resume MUST work identically for PRD and ad-hoc interrupted sessions by reading `activeWork.stories[].status`
+- FR-23: The flow chart option MUST reflect the actual stories from analysis, not a generic template
+- FR-24: The `builder-state.schema.json` MUST be updated with the `activeWork` schema and `activePrd`/`activeTask`/`adhocQueue` marked deprecated
+
+## Technical Considerations (Part 3)
+
+- **Schema migration:** `builder-state.schema.json` gets a major update. The old fields (`activePrd`, `activeTask`, `adhocQueue`) stay for backward compatibility but are deprecated. New sessions use `activeWork` exclusively.
+- **adhoc-workflow impact:** The ad-hoc workflow skill currently manages its own story iteration. After this change, it generates stories (from Task Spec) and hands them to the unified pipeline in builder.md. It no longer iterates stories itself.
+- **prd-workflow impact:** Same — prd-workflow loads stories from the PRD and populates `activeWork.stories[]`, then builder.md's pipeline processes them.
+- **Auto-commit and git.autoCommit:** The `onStoryComplete` auto-commit becomes unconditional in the pipeline. The `git.autoCommit` setting's `onFileChange` option (if used) would mean *additional* commits within a story, not a replacement for the story-level commit. The `manual` setting would need to be reconsidered — it may mean "don't push" rather than "don't commit" since the pipeline requires commits for resumability.
+- **Flow chart rendering:** The flow chart is generated from `activeWork.stories[]` at dashboard time. No new skill needed — it's inline logic in the dashboard rendering.
+
+## Implementation Order (Part 3)
+
+```
+US-013 (unified state model)
+  ├── US-014 (mandatory pipeline — depends on US-013 + US-007 from Part 2)
+  ├── US-015 (flow chart option — depends on US-013 for story data)
+  └── US-016 (session resume — depends on US-013 for state shape)
+```
+
+## Success Metrics (Part 3)
+
+- Zero branching in story processing between PRD and ad-hoc modes
+- Every story produces exactly one commit (auto-commit is mandatory)
+- Interrupted sessions resume correctly from `activeWork` state
+- Flow chart accurately reflects the implementation plan for any request
+
+## Credential & Service Access Plan (Part 3)
 
 No external credentials required for this PRD.
