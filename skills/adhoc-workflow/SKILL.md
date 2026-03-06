@@ -294,6 +294,54 @@ Run analysis with visible progress indicator:
 
 If analysis times out, show what was found with note: "⚠️ Analysis may be incomplete (timed out)"
 
+### Step 0.1a: Task Type Classification (MANDATORY)
+
+> ⛔ **CRITICAL: Classify the task type BEFORE proceeding to probe or dashboard.**
+>
+> Some tasks require no source code changes — only CLI/ops commands (deploy, secrets, infrastructure).
+> These "ops-only" tasks can still have **runtime impact** that requires browser verification.
+>
+> **Trigger:** After Step 0.1 analysis completes.
+> **Evidence:** `taskType` written to `builder-state.json` → `activeTask.taskType`.
+> **Failure behavior:** If task type is not classified, default to `source-change` (safest path).
+
+**Classification rules:**
+
+Based on the analysis, determine the task type:
+
+| Task Type | When | Verification Pipeline |
+|-----------|------|----------------------|
+| `source-change` | Implementation requires modifying source files (`.ts`, `.tsx`, `.go`, etc.) | Standard: typecheck → test → build → Playwright |
+| `ops-with-runtime-impact` | Fix requires only CLI/ops commands (deploy, secrets, infra) AND the original issue is **browser-visible** (CORS, auth, API errors, UI behavior) | Reduced: skip typecheck/build, but **run Playwright** against affected behavior |
+| `ops-only` | Fix requires only CLI/ops commands AND has **no browser-visible impact** (CI config, log rotation, secret rotation for non-app services) | None: mark complete after ops commands succeed |
+
+**How to determine runtime impact:**
+
+Ask: "Was the user's original issue visible in the browser or app UI?"
+
+| Original Issue | Runtime Impact? | Example |
+|---------------|-----------------|---------|
+| CORS error | Yes | Edge function returns 403 on preflight |
+| Auth failure | Yes | OAuth flow fails, login broken |
+| API 500 error | Yes | Backend returns error user can see |
+| Feature not working | Yes | Deployed function missing, feature 404s |
+| CI pipeline failing | No | GitHub Actions red, no user impact |
+| Secret rotation (internal) | No | Rotating API keys for monitoring service |
+| Log config change | No | Changing log levels, no user impact |
+
+**Write classification to `builder-state.json`:**
+
+```json
+{
+  "activeTask": {
+    "taskType": "ops-with-runtime-impact",
+    "runtimeImpact": "GitHub OAuth flow fails — edge function not deployed",
+    "opsCommands": ["supabase secrets set", "supabase functions deploy"],
+    "verificationTarget": "Authenticate, open org creation wizard, click Connect GitHub — verify OAuth URL returned"
+  }
+}
+```
+
 ### Step 0.1b: Playwright Analysis Confirmation (MANDATORY)
 
 > ⛔ **CRITICAL: Code analysis MUST be confirmed via Playwright probe before showing the dashboard.**
@@ -545,6 +593,13 @@ TSK-002: Show Spinner when loading
 TSK-003: Disable button during submission
 TSK-004: Add unit tests
 
+🔧 VERIFICATION PLAN
+───────────────────────────────────────────────────────────────────────
+  Task type: source-change
+  Source changes: Yes (2 files)
+  Pipeline: typecheck → lint → unit tests → rebuild → Playwright verify
+  Playwright scope: /checkout (submit button loading states)
+
 ═══════════════════════════════════════════════════════════════════════
 
 [G] Go ahead — create Task Spec and start
@@ -623,6 +678,60 @@ There appears to be a caching issue but I need clarification:
 > _
 ═══════════════════════════════════════════════════════════════════════
 ```
+
+**Ops-only with runtime impact dashboard example:**
+
+```
+═══════════════════════════════════════════════════════════════════════
+                         ANALYSIS COMPLETE
+═══════════════════════════════════════════════════════════════════════
+
+📋 REQUEST: "Fix Failed to generate GitHub OAuth URL error"
+
+📊 UNDERSTANDING                          Confidence: HIGH ✅ Playwright-confirmed
+───────────────────────────────────────────────────────────────────────
+The GitHub OAuth flow fails because Supabase Edge Functions are not
+deployed to the remote project. The functions exist locally but were
+never deployed after the last migration.
+
+🔍 PROBE RESULTS                                              1/1 ✅
+───────────────────────────────────────────────────────────────────────
+  ✅ /org/create → "Connect GitHub" button visible (confirmed)
+
+🎯 SCOPE: Small (ops-only — deploy functions + set secrets)
+
+📁 OPS COMMANDS (no source changes)
+───────────────────────────────────────────────────────────────────────
+• supabase secrets set --env-file .env.production
+• supabase functions deploy (10 functions)
+
+🔧 VERIFICATION PLAN
+───────────────────────────────────────────────────────────────────────
+  Task type: ops-with-runtime-impact
+  Source changes: None (ops-only)
+  Runtime impact: Yes — GitHub OAuth flow fails without deployed edge functions
+  Pipeline: ops commands → Playwright verify affected behavior
+  Playwright scope: Authenticate → org creation wizard → Connect GitHub
+    → Verify edge function returns valid OAuth URL
+
+═══════════════════════════════════════════════════════════════════════
+
+[G] Go ahead — execute ops commands and verify
+[E] Edit/Clarify — refine understanding
+[C] Cancel — abort this request
+
+> _
+═══════════════════════════════════════════════════════════════════════
+```
+
+> ⚠️ **The VERIFICATION PLAN section is MANDATORY in every dashboard.**
+>
+> It must always be present, including for ops-only tasks. The plan makes explicit:
+> - Whether source changes exist
+> - Whether Playwright verification will run (and why)
+> - What behavior will be verified
+>
+> This prevents Builder from "forgetting" verification after ops commands complete.
 
 ### Step 0.3: Clarifying Questions (MANDATORY for MEDIUM/LOW)
 
@@ -1164,6 +1273,75 @@ Requirements:
 4. **Run quality checks** (automatic — see [Per-Task Quality Checks](#per-task-quality-checks-mandatory) above)
 5. **Mark story complete** — update todos, registry, Task Spec file
 6. **Update scope estimate** — check if scope is growing
+
+### Step 1.2a: Post-Ops Verification Checkpoint (ops-only tasks)
+
+> ⛔ **CRITICAL: Ops-only tasks with runtime impact MUST run Playwright verification.**
+>
+> When `taskType` is `ops-with-runtime-impact`, the standard per-task quality checks (typecheck, lint, unit tests)
+> won't fire because no source files changed. But the fix still affects browser-visible behavior.
+>
+> **Trigger:** After ops commands complete successfully AND `taskType == "ops-with-runtime-impact"`.
+> **Failure behavior:** If Builder completes ops commands and declares "done" without running Playwright, the task is NOT verified.
+
+**This step replaces the standard quality checks for ops-only tasks:**
+
+```
+Ops commands complete
+    │
+    ▼
+Read taskType from builder-state.json
+    │
+    ├── taskType: "source-change"
+    │   └── Standard flow: @developer delegation → quality checks (Step 1.2 above)
+    │
+    ├── taskType: "ops-with-runtime-impact"
+    │   │
+    │   ▼
+    │   Skip: typecheck, lint, unit tests, rebuild (no source changes)
+    │   │
+    │   ▼
+    │   Run Playwright verification against the affected behavior:
+    │   1. Read verificationTarget from builder-state.json
+    │   2. Write or identify existing Playwright test for the target behavior
+    │   3. Execute Playwright test (use postChangeWorkflow Playwright step or direct invocation)
+    │   4. If test passes → mark verified, proceed to completion
+    │   5. If test fails → diagnose: is it a test issue or did the ops fix not work?
+    │      - Retry up to 3 times with fix attempts
+    │      - After 3 failures: STOP, report to user
+    │   │
+    │   ▼
+    │   Show story completion with ops-specific detail:
+    │   ┌─────────────────────────────────────────────────────────────┐
+    │   │ ✅ TASK COMPLETE                                            │
+    │   │                                                             │
+    │   │ Ops commands executed:                                      │
+    │   │   ✅ supabase secrets set (14 secrets)                      │
+    │   │   ✅ supabase functions deploy (10 functions)               │
+    │   │                                                             │
+    │   │ Verification:                                               │
+    │   │   ✅ Playwright: OAuth flow returns valid URL                │
+    │   │                                                             │
+    │   │ Source changes: None                                        │
+    │   │ Commits: None needed                                        │
+    │   └─────────────────────────────────────────────────────────────┘
+    │
+    └── taskType: "ops-only"
+        └── No verification needed. Mark complete after ops commands succeed.
+```
+
+**Writing Playwright tests for ops verification:**
+
+When no existing test covers the affected behavior, Builder writes a targeted Playwright test:
+
+| Ops Task | Test Target | Example Assertion |
+|----------|-------------|-------------------|
+| Deploy edge functions | Function endpoint responds | `expect(response.status()).toBe(200)` |
+| Set secrets / env vars | Feature that uses the secret | Navigate to feature → verify no error |
+| Deploy infrastructure | Dependent app behavior | Feature that uses the infra is functional |
+| Database migration (remote) | App reads migrated data correctly | Navigate to page → verify data renders |
+
+The test should verify the **user-visible behavior** that was broken, not just that the ops command succeeded. A `curl 200` is NOT sufficient when the original issue was browser-visible.
 
 ### Step 1.3: Scope Growth Warning
 

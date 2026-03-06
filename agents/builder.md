@@ -1132,11 +1132,12 @@ ANALYSIS_COMPLETED=$(jq -r '.activeTask.analysisCompleted // false' docs/builder
 
 Load `builder-delegation` skill for full context block format and semantic search integration.
 
-### Verification Pipeline Resolution (MANDATORY before commit)
+### Verification Pipeline Resolution (MANDATORY before commit or task completion)
 
-> ⛔ **MANDATORY: Before committing any code change, Builder MUST resolve and execute the verification pipeline.**
+> ⛔ **MANDATORY: Before committing any code change OR declaring an ops-only task complete, Builder MUST resolve and execute the verification pipeline.**
 >
-> This ensures desktop apps are rebuilt/relaunched and all apps are verified using the correct Playwright variant.
+> This ensures desktop apps are rebuilt/relaunched, all apps are verified using the correct Playwright variant,
+> and ops-only tasks with runtime impact are browser-verified.
 
 **Step 1: Check for `postChangeWorkflow` override**
 
@@ -1183,6 +1184,10 @@ In PRD mode, Playwright runs are **story-scoped**: only tests covering changed f
 **Step 6: Playwright retry strategy (PRD mode)**
 
 In PRD mode, Playwright failures use a **5-attempt retry** with fix attempts between each retry. After 5 failures, the Playwright step is **skipped and logged** — Builder continues to the next story. This differs from the general `test-verification-loop` (3 attempts, stop and ask). Each attempt is logged with what was tried, and the skip includes full failure detail in `builder-state.json` → `activePrd.playwrightSkips[]`. See `prd-workflow` skill → "Playwright Retry Strategy (5 attempts, skip and log)".
+
+**Step 7: Ops-only task verification (ad-hoc mode)**
+
+When `taskType` is `ops-with-runtime-impact` (classified during analysis — see `adhoc-workflow` skill → "Step 0.1a: Task Type Classification"), the standard pipeline (typecheck → build → test) is skipped because no source files changed. Instead, Builder runs **Playwright verification against the affected runtime behavior** directly after ops commands complete. This closes the gap where ops-only fixes to browser-visible issues (CORS errors, auth failures, missing deployments) were declared "done" without browser-level verification. See `adhoc-workflow` skill → "Step 1.2a: Post-Ops Verification Checkpoint" for the full flow.
 
 ---
 
