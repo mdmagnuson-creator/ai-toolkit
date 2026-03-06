@@ -161,12 +161,12 @@
     },
     {
       "id": "prd-adhoc-design-decisions",
-      "title": "Ad-hoc Design Decision Surfacing",
+      "title": "Ad-hoc Design Decision Surfacing & Testing Consolidation",
       "status": "draft",
       "filePath": "docs/drafts/prd-adhoc-design-decisions.md",
       "createdAt": "2026-03-06",
-      "stories": 6,
-      "notes": "Adds Step 0.1c to ad-hoc analysis: Builder detects implicit design/implementation decisions and asks the user before showing the dashboard. Integrates planning.considerations. Answers flow into Task Spec acceptance criteria."
+      "stories": 12,
+      "notes": "Part 1: Adds Step 0.1c to ad-hoc analysis — Builder detects implicit implementation decisions and asks user before showing the dashboard. Integrates planning.considerations. Answers flow into Task Spec acceptance criteria. Part 2: Consolidates 4 duplicated quality-check pipeline definitions into a single canonical test-flow skill. Deduplicates isUIProject(), E2E URL resolution, and shared detection functions."
     }
   ]
 }
