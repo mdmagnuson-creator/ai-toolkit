@@ -580,11 +580,14 @@ Proposed:
 
 ⚠️ CONSEQUENCES: None identified
 
+✅ RECOMMENDED APPROACH
+───────────────────────────────────────────────────────────────────────
+Use Spinner component (consistent with design system, accessible)
+
 🔀 ALTERNATIVES                                              [D] Details
 ───────────────────────────────────────────────────────────────────────
-1. Use Spinner component ← RECOMMENDED (consistent, accessible)
-2. CSS-only animation (simpler but inconsistent)
-3. Full-page overlay (overkill for single button)
+1. CSS-only animation (simpler but inconsistent with design system)
+2. Full-page overlay (overkill for single button)
 
 📝 STORY PREVIEW
 ───────────────────────────────────────────────────────────────────────
@@ -634,7 +637,8 @@ TSK-004: Add unit tests
 - **Confidence:** HIGH (clear request) / MEDIUM (some ambiguity) / LOW (needs clarification)
 - **Scope:** Small (<5 files, no breaking changes) / Medium (5-15 files, minor impacts) / Large (15+ files, breaking changes)
 - **Consequences:** Collapsed if none; expanded if any exist
-- **Alternatives:** Collapsed to recommendation if only one sensible approach
+- **Recommended Approach:** Always shown as its own `✅ RECOMMENDED APPROACH` section; never listed inside Alternatives
+- **Alternatives:** Shown as `🔀 ALTERNATIVES` section with non-recommended options only; collapsed if no alternatives exist
 
 **Dashboard options by confidence level:**
 
