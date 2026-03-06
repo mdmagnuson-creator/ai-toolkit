@@ -1,7 +1,7 @@
 ---
 id: prd-adhoc-design-decisions
 title: Ad-hoc Design Decision Surfacing & Testing Consolidation
-status: draft
+status: ready
 priority: high
 createdAt: 2026-03-06T19:00:00Z
 ---
