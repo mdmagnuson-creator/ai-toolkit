@@ -1002,13 +1002,13 @@
         "type": "fix",
         "scope": "skills",
         "description": "add failure behavior self-check to adhoc-workflow probe dispatch \u2014 if generated spec contains baseUrl for desktop app, STOP and regenerate with electron transport",
-        "hash": "pending"
+        "hash": "bb9d519"
       },
       {
         "type": "fix",
         "scope": "skills",
         "description": "Electron probe spec in adhoc-workflow now references project.json paths instead of template placeholders \u2014 always read executablePath/launchTarget from apps.desktop.testing",
-        "hash": "pending"
+        "hash": "bb9d519"
       },
       {
         "type": "fix",
