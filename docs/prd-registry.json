@@ -177,6 +177,15 @@
       "completedAt": "2026-03-06",
       "stories": 13,
       "notes": "Eliminates all probe skip paths (skipped, degraded-no-auth, config opt-out). Makes probe truly mandatory with user-assisted auth escalation, re-probe loop for contradictions, and user-skipped as the only skip path (requires explicit user acceptance)."
+    },
+    {
+      "id": "prd-playwright-agent-consolidation",
+      "title": "Playwright Agent Consolidation, E2E Routing Rationalization & UI Test Naming Convention",
+      "status": "ready",
+      "filePath": "docs/prds/prd-playwright-agent-consolidation.md",
+      "createdAt": "2026-03-07",
+      "stories": 13,
+      "notes": "Merges playwright-dev into e2e-playwright, renames all e2e-* to ui-* naming convention, introduces testVerifySettings as universal Playwright gate, simplifies 12 invocation paths to unified routing through one agent."
     }
   ]
 }

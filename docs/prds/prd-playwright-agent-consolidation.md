@@ -1,7 +1,7 @@
 ---
 id: prd-playwright-agent-consolidation
 title: Playwright Agent Consolidation, E2E Routing Rationalization & UI Test Naming Convention
-status: draft
+status: ready
 priority: high
 createdAt: 2026-03-07T20:00:00Z
 ---
@@ -358,6 +358,7 @@ Steps 1-3 could live in the caller or in `e2e-playwright` itself. Step 4 is usef
   - Data: `workflow-defaults.json`, `skill-mapping.json`, `fallback-chains.yaml`
   - Schemas: `project.schema.json`
 - [ ] `toolkit-structure.json` agent entry updated
+- [ ] `toolkit.md` Post-Change Workflow category logic updated — hardcoded testing agent list must include `ui-tester-playwright` and `ui-test-area-reviewer` (or pattern matching updated to recognize `ui-tester-*` / `ui-test-*` names)
 - [ ] `opencode.json` agent entry updated (if present)
 
 **Note:** This story can be combined with US-003/004/005/006 during implementation — when those stories swap `@playwright-dev` references, they swap directly to `@ui-tester-playwright` (not to `@e2e-playwright` as an intermediate step).
@@ -375,6 +376,7 @@ Steps 1-3 could live in the caller or in `e2e-playwright` itself. Step 4 is usef
   - `agents/tester.md`
   - `agents/ui-tester-playwright.md` (the merged agent)
   - `agents/toolkit.md`
+  - `project-templates/CONVENTIONS.md`
 - [ ] All references to `@e2e-auditor` updated to `@ui-test-full-app-auditor`:
   - `agents/ui-tester-playwright.md`
   - `skills/ui-test-full-app-audit/SKILL.md` (formerly `e2e-full-audit`)
@@ -408,6 +410,7 @@ Steps 1-3 could live in the caller or in `e2e-playwright` itself. Step 4 is usef
 - [ ] All references to `test-e2e-flow` skill updated to `ui-test-flow` (~4 files)
 - [ ] All references to `e2e-audit-manifest` schema updated to `ui-test-full-app-audit-manifest`
 - [ ] All references to `e2e-quality-helpers` template updated to `ui-test-ux-quality-helpers`
+- [ ] `agent-templates/testing/playwright.md` — update 7 references from `e2e-quality-helpers` to `ui-test-ux-quality-helpers`
 - [ ] `agents/planner.md` reference to `e2e-electron` skill updated to `ui-test-electron`
 - [ ] `templates/coding-playwright.md` reference to `e2e-quality-helpers.ts` updated to `ui-test-ux-quality-helpers.ts`
 - [ ] `data/skill-mapping.json` updated with new skill names
