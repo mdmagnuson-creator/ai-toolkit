@@ -1002,19 +1002,19 @@
         "type": "fix",
         "scope": "skills",
         "description": "add architecture-aware probe dispatch to adhoc-workflow \u2014 Electron apps now get transport:electron spec instead of browser-only baseUrl",
-        "hash": "pending"
+        "hash": "18d0fb8"
       },
       {
         "type": "fix",
         "scope": "agents",
         "description": "add explicit prohibition against browser transport for desktop/Electron apps in builder.md gate",
-        "hash": "pending"
+        "hash": "18d0fb8"
       },
       {
         "type": "fix",
         "scope": "skills",
         "description": "add Architecture-Aware Probe Dispatch, Electron Probe Spec, and Electron Probe Flow to test-ui-verification",
-        "hash": "pending"
+        "hash": "18d0fb8"
       },
       {
         "date": "2026-03-06",
@@ -1459,55 +1459,55 @@
             "type": "feat",
             "scope": "schema",
             "description": "add webContent and remoteUrl fields to apps schema for desktop app architecture detection",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "feat",
             "scope": "skills",
             "description": "add desktop app detection and webContent questions to project-bootstrap skill",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "feat",
             "scope": "skills",
             "description": "add architecture-aware verification strategy to test-flow skill",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "feat",
             "scope": "skills",
             "description": "add Step 0.0a pre-analysis screenshot to adhoc-workflow skill",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "feat",
             "scope": "skills",
             "description": "add desktop app startup support to start-dev-server skill",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "feat",
             "scope": "skills",
             "description": "add zombie process cleanup patterns to e2e-electron skill",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "feat",
             "scope": "skills",
             "description": "add zombie process pre-check to test-flow skill",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "feat",
             "scope": "builder",
             "description": "add test documentation sync section for pre-commit stale reference detection",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "feat",
             "scope": "developer",
             "description": "add test documentation sync step 6 before commit in Phase 3",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "fix",
@@ -1531,13 +1531,13 @@
             "type": "fix",
             "scope": "guardrails",
             "description": "clarify PR creation to protected branches is allowed, only auto-merge is blocked",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "fix",
             "scope": "adhoc-workflow",
             "description": "add explicit git.agentWorkflow enforcement to Phase 2: Ship with PR prompt",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "fix",
@@ -1549,31 +1549,31 @@
             "type": "feat",
             "scope": "builder",
             "description": "add CLI state persistence and proactive CLI usage triggers for compaction resilience",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "feat",
             "scope": "schema",
             "description": "add availableCLIs to builder-state schema for CLI state persistence",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "feat",
             "scope": "builder",
             "description": "add environment-database context diagnosis protocol and vercel-supabase-alignment skill",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "feat",
             "scope": "schema",
             "description": "extend project.schema.json environments with database, branch, vercelEnvironment, desktop mappings",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "docs",
             "scope": "research",
             "description": "add LLM techniques synthesis report with 6 actionable recommendations",
-            "hash": "pending"
+            "hash": "18d0fb8"
           }
         ]
       },
@@ -1584,49 +1584,49 @@
             "type": "feat",
             "scope": "guardrails",
             "description": "add canonical Git Completion Workflow to AGENTS.md for unified PRD and ad-hoc git behavior",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "fix",
             "scope": "skills",
             "description": "update prd-workflow Phase 3: Ship to use git.agentWorkflow and reference canonical workflow",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "fix",
             "scope": "skills",
             "description": "update adhoc-workflow to reference canonical Git Completion Workflow in AGENTS.md",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "fix",
             "scope": "schema",
             "description": "clarify requiresHumanApproval allows PRs but blocks auto-merge",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "docs",
             "scope": "prd",
             "description": "implement PRD for unified git completion workflow (moved to docs/prds/)",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "fix",
             "scope": "guardrails",
             "description": "clarify PR creation allowed to protected branches, only auto-merge blocked",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "fix",
             "scope": "skills",
             "description": "add explicit git.agentWorkflow enforcement to adhoc-workflow Phase 2: Ship",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "docs",
             "scope": "prd",
             "description": "add PRD for consistent git workflow completion behavior",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "feat",
@@ -1752,91 +1752,91 @@
             "type": "feat",
             "scope": "verification",
             "description": "add automated fix loop with classification (prerequisite vs feature vs environment)",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "feat",
             "scope": "verification",
             "description": "add 3-pass stability verification (requiredPasses config, pass counter, reset on fix)",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "feat",
             "scope": "verification",
             "description": "add environment prerequisite handling with skill-based recovery",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "feat",
             "scope": "verification",
             "description": "add skill creation request flow for missing environment skills",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "feat",
             "scope": "verification",
             "description": "add failure logging (verification-failures.json) and manual fallback options",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "feat",
             "scope": "verification",
             "description": "add blocker tracking (test-debt.json) and bulk re-verification command",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "feat",
             "scope": "schema",
             "description": "add verification config: requiredPasses, autoFixLoop, fixAttemptTimeoutMinutes, runBroaderTestsAfterFix",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "feat",
             "scope": "testing",
             "description": "add non-localhost testing support with URL resolution priority chain",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "feat",
             "scope": "skills",
             "description": "add test-url-resolution skill for preview/staging URL resolution",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "feat",
             "scope": "schema",
             "description": "add agents.verification.testBaseUrl field for explicit URL override",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "refactor",
             "scope": "agents",
             "description": "update e2e-playwright, playwright-dev, tester agents for URL resolution",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "refactor",
             "scope": "agents",
             "description": "update secondary agents (qa-browser-tester, e2e-reviewer, screenshot-maintainer, support-article-writer)",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "refactor",
             "scope": "skills",
             "description": "update test-flow and coding-playwright templates for TEST_BASE_URL pattern",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "feat",
             "scope": "skills",
             "description": "add remote health check with retry to start-dev-server skill",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "feat",
             "scope": "builder",
             "description": "add preview environment detection and CLI triggers",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "feat",
@@ -1884,25 +1884,25 @@
             "type": "feat",
             "scope": "builder",
             "description": "add vectorization status section to fresh and resume dashboards",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "feat",
             "scope": "builder",
             "description": "add blocking stale index prompt with R/S/D options when index >24h old",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "docs",
             "scope": "vectorize",
             "description": "document token-aware batching in SKILL.md",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "feat",
             "scope": "vectorize",
             "description": "add verbosity control to embeddings (default summary, --verbose for details, --quiet for CI)",
-            "hash": "pending"
+            "hash": "18d0fb8"
           }
         ]
       },
@@ -2044,13 +2044,13 @@
             "type": "feat",
             "scope": "builder",
             "description": "expand git.autoCommit to support onStoryComplete, onFileChange, manual modes",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "fix",
             "scope": "toolkit-structure",
             "description": "move e2e-auditor from testing to primary category (matches mode: primary)",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "feat",
@@ -2067,31 +2067,31 @@
             "type": "feat",
             "scope": "agents",
             "description": "add e2e-auditor agent for comprehensive autonomous E2E test auditing",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "feat",
             "scope": "skills",
             "description": "add e2e-full-audit skill for audit workflow patterns and resilient execution",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "feat",
             "scope": "schema",
             "description": "add e2e-audit-manifest schema for test tracking with 5-retry resilience",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "feat",
             "scope": "agents",
             "description": "add audit-mode support to e2e-playwright agent",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "feat",
             "scope": "skills",
             "description": "add e2e-auditor integration section to test-flow skill",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "feat",
@@ -2168,31 +2168,31 @@
             "type": "feat",
             "scope": "testing",
             "description": "implement automatic test activity selection - signal-based test routing replaces manual rigor selection",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "feat",
             "scope": "schema",
             "description": "add test-activity-rules and test-debt schemas for automatic test selection",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "refactor",
             "scope": "skills",
             "description": "remove rigor profile selection from prd-workflow and test-flow skills",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "feat",
             "scope": "agents",
             "description": "add dependency smoke testing to e2e-reviewer agent",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "feat",
             "scope": "updates",
             "description": "add central registry sync for cross-machine project updates",
-            "hash": "pending"
+            "hash": "18d0fb8"
           },
           {
             "type": "feat",
