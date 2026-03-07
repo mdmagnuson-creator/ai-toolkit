@@ -431,11 +431,29 @@ Ask: "Was the user's original issue visible in the browser or app UI?"
    > **but the actual changes target authenticated pages.** That's not "partially confirmed" —
    > **that's "not probed at all."**
 
-2. **Build probe spec and invoke `@e2e-playwright` with `mode: "analysis-probe"`:**
+2. **Determine probe transport (MANDATORY — read `project.json` BEFORE building spec):**
+
+   Read `project.json` → `architecture.deployment` and `apps` to determine the correct transport:
+
+   | `architecture.deployment` | Transport | Spec Format |
+   |---------------------------|-----------|-------------|
+   | `web`, `web-*`, `serverless` | `browser` | Browser Probe Spec (below) |
+   | `electron-only`, `desktop`, `tauri` | `electron` | Electron Probe Spec (below) |
+   | `hybrid` (web + desktop) | Both | One probe per transport |
+
+   > ⛔ **CRITICAL: Never use `baseUrl: "http://localhost:{devPort}"` for desktop/Electron apps.**
+   > Desktop apps have NO browser-accessible web server. Using browser transport against localhost
+   > will probe the wrong thing (or nothing at all) and produce false results.
+   > If `architecture.deployment` is `electron-only`, you MUST use `transport: electron`.
+
+3. **Build probe spec and invoke `@e2e-playwright` with `mode: "analysis-probe"`:**
+
+   **Browser Probe Spec** (web apps only):
 
    ```yaml
    <probe-spec>
      mode: analysis-probe
+     transport: browser
      baseUrl: "http://localhost:{devPort}"
      timeout: 5000
      assertions:
@@ -450,9 +468,37 @@ Ask: "Was the user's original issue visible in the browser or app UI?"
    </probe-spec>
    ```
 
-   See `test-ui-verification` skill → "Analysis Probe Mode" for full probe specification format, assertion types, and execution flow.
+   **Electron Probe Spec** (desktop apps — use when `architecture.deployment` is `electron-only`):
 
-3. **Process probe results:**
+   ```yaml
+   <probe-spec>
+     mode: analysis-probe
+     transport: electron
+     launchTarget: "{apps.desktop.testing.launchTarget}"
+     executablePath: "{apps.desktop.testing.executablePath}"
+     timeout: 10000
+     zombieCleanup: true
+     assertions:
+       - window: "main"
+         description: "Submit button exists in main window"
+         checks:
+           - selector: "button[type='submit']"
+             expect: "visible"
+           - selector: ".spinner"
+             expect: "absent"
+             description: "No loading indicator yet"
+     electronChecks:
+       - type: "ipc-response"
+         channel: "{relevant IPC channel if applicable}"
+         expect: "defined"
+   </probe-spec>
+   ```
+
+   > 📚 **SKILL: e2e-electron** — Load for full Playwright Electron patterns (zombie cleanup, launch, IPC evaluation, auth helpers).
+
+   See `test-ui-verification` skill → "Analysis Probe Mode" for full probe specification format, assertion types, and execution flow (including Architecture-Aware Probe Dispatch and Electron Probe Flow).
+
+4. **Process probe results:**
 
    | Probe Status | Action |
    |-------------|--------|
@@ -461,7 +507,7 @@ Ask: "Was the user's original issue visible in the browser or app UI?"
    | `contradicted` | **Re-probe loop:** Revise code analysis using probe data → generate new assertions → re-run probe (max 2 retries, see below) |
    | `user-skipped` | Proceed to Step 0.2 with `⚠️ User accepted skip` badge — user explicitly chose to skip probe on authenticated pages |
 
-4. **On contradiction — mandatory re-probe loop:**
+5. **On contradiction — mandatory re-probe loop:**
 
    When probe results contradict the code analysis, Builder MUST revise the analysis AND re-probe to confirm the revision is correct — not just revise and proceed.
 
@@ -509,7 +555,7 @@ Ask: "Was the user's original issue visible in the browser or app UI?"
    - The contradictions are shown to the user with the clarifying questions
    - Answering questions restarts analysis from Step 0.1 (which re-runs the probe)
 
-5. **Progress indicator:**
+6. **Progress indicator:**
 
    Show probe progress inline with the analysis progress:
 

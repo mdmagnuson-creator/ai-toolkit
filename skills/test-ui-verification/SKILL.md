@@ -445,6 +445,47 @@ This mode is invoked by Builder during the ad-hoc workflow **Step 0.1b** — aft
 
 **Trigger:** `@e2e-playwright` with `mode: "analysis-probe"`
 
+### Architecture-Aware Probe Dispatch (MANDATORY)
+
+> ⛔ **CRITICAL: Before generating the probe spec, check `project.json` → `apps` for desktop app configuration.**
+>
+> Desktop apps MUST use `playwright-electron` for analysis probes — never browser-based probing.
+> A headless browser hitting `localhost:{devPort}` is NOT testing the Electron app. It's testing bare web content without the Electron shell, IPC bridge, preload script, or desktop-specific behavior.
+>
+> **Trigger:** Before generating probe-spec in Step 0.1b.
+> **Evidence:** Probe spec must contain `transport: "electron"` for desktop apps.
+> **Failure behavior:** If a desktop app's probe spec contains `baseUrl` without `transport: "electron"`, the probe is misconfigured — STOP and regenerate.
+
+**Dispatch logic:**
+
+```
+function determineProbeTransport(project):
+  for appName, appConfig in project.apps:
+    if appConfig.type == "desktop":
+      # Desktop app detected — MUST use Electron transport
+      return {
+        transport: "electron",
+        executablePath: appConfig.testing?.executablePath?.[platform],
+        launchTarget: appConfig.testing?.launchTarget,  # "installed-app" or "dev-build"
+        devLaunchArgs: appConfig.testing?.devLaunchArgs,
+        authHelper: project.authentication?.headless?.helperModule,
+        notes: "Connect Playwright to the Electron process, NOT a browser against localhost"
+      }
+  
+  # No desktop app — standard browser probe
+  return {
+    transport: "browser",
+    baseUrl: resolveTestBaseUrl(project)
+  }
+```
+
+| App Type | Transport | How Probe Connects |
+|----------|-----------|-------------------|
+| Web/fullstack | `browser` | Standard Playwright against `http://localhost:{devPort}` |
+| Desktop (any `webContent`) | `electron` | Playwright `_electron.launch()` with `executablePath` from `project.json` → `apps.desktop.testing` |
+
+> ⛔ **Even `webContent: "remote"` desktop apps use Electron transport.** The web content loads inside Electron's renderer process — probing `localhost` in a browser misses IPC, preload scripts, Electron-specific navigation, and desktop window behavior.
+
 ### Configuration
 
 Analysis probe mode uses project-level verification settings but with lighter constraints:
@@ -458,11 +499,14 @@ Analysis probe mode uses project-level verification settings but with lighter co
 
 ### Probe Specification Format
 
-Builder generates a probe specification from Step 0.1 code analysis and passes it to `@e2e-playwright`:
+Builder generates a probe specification from Step 0.1 code analysis and passes it to `@e2e-playwright`. **The spec format depends on the probe transport determined by Architecture-Aware Probe Dispatch above.**
+
+#### Browser Probe Spec (web apps)
 
 ```yaml
 <probe-spec>
   mode: analysis-probe
+  transport: browser
   baseUrl: "http://localhost:{devPort}"
   timeout: 5000
   assertions:
@@ -482,6 +526,55 @@ Builder generates a probe specification from Step 0.1 code analysis and passes i
 </probe-spec>
 ```
 
+#### Electron Probe Spec (desktop apps)
+
+> ⛔ **Use this format when `project.json` → `apps` contains a `type: "desktop"` entry.**
+> The probe connects to the running Electron app via `_electron.launch()`, NOT a browser against localhost.
+
+```yaml
+<probe-spec>
+  mode: analysis-probe
+  transport: electron
+  executablePath: "{from project.json → apps.desktop.testing.executablePath[platform]}"
+  launchTarget: "{from project.json → apps.desktop.testing.launchTarget}"
+  devLaunchArgs: ["{from project.json → apps.desktop.testing.devLaunchArgs}"]
+  authHelper: "{from project.json → authentication.headless.helperModule}"
+  timeout: 10000
+  assertions:
+    - page: "/settings"
+      description: "GitHub connect button exists"
+      checks:
+        - selector: "[data-testid='github-connect'], button:has-text('Connect GitHub')"
+          expect: "visible"
+        - selector: "[data-testid='github-connected']"
+          expect: "absent"
+          description: "Not yet connected"
+  electronChecks:
+    - description: "IPC handler registered"
+      evaluate: "electronApp.evaluate(({ ipcMain }) => ipcMain.listenerCount('github:connect'))"
+      expect: "greater-than:0"
+</probe-spec>
+```
+
+**Key differences from browser probes:**
+- `transport: electron` — connects via Playwright's `_electron` API
+- `executablePath` — read from `project.json` → `apps.desktop.testing.executablePath`
+- `launchTarget` — `"installed-app"` or `"dev-build"` (determines launch method)
+- `timeout: 10000` — Electron apps take longer to launch than page navigation
+- `electronChecks` — optional main process assertions via `electronApp.evaluate()`
+- `authHelper` — helper module for auth injection if the app requires authentication
+- **NO `baseUrl`** — the probe connects to the Electron process, not a URL
+
+**Electron probe execution flow:**
+1. Read `executablePath` and `launchTarget` from `project.json` → `apps.desktop.testing`
+2. Kill any existing instances (see `e2e-electron` skill → Zombie Process Cleanup)
+3. Launch Electron: `_electron.launch({ executablePath })` or `_electron.launch({ args: devLaunchArgs })`
+4. Get first window: `electronApp.firstWindow()`
+5. Authenticate if needed using `authHelper` module
+6. Run assertions against the window (same selectors/expects as browser probes)
+7. Run `electronChecks` against the main process if specified
+8. Close Electron app
+
 ### Probe Assertion Types
 
 | Expect Value | What It Checks | Passes When |
@@ -500,7 +593,17 @@ Builder passes probe-spec to @e2e-playwright
     │
     ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│ STEP 1: Validate probe spec                                          │
+│ STEP 0: Check transport                                              │
+│                                                                     │
+│ if transport == "electron":                                          │
+│   → Go to Electron Probe Flow (below)                               │
+│ if transport == "browser" (or unspecified):                          │
+│   → Continue to STEP 1                                              │
+└─────────────────────────────────────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│ STEP 1: Validate probe spec (browser transport)                      │
 │   • Ensure baseUrl is reachable                                      │
 │   • Validate assertion format                                        │
 │   • If baseUrl unreachable → return { status: "error",               │
@@ -531,6 +634,78 @@ Builder passes probe-spec to @e2e-playwright
 │   • <50% match → "contradicted"                                      │
 │                                                                     │
 │ If "contradicted": capture screenshot of contradicting page          │
+└─────────────────────────────────────────────────────────────────────┘
+    │
+    ▼
+Return ProbeResult to Builder
+```
+
+#### Electron Probe Flow
+
+> ⛔ **This flow is mandatory when `transport: "electron"` is specified in the probe spec.**
+> Loading `localhost:{devPort}` in a headless browser is NOT equivalent to probing the Electron app.
+
+```
+Builder passes probe-spec with transport: "electron" to @e2e-playwright
+    │
+    ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│ STEP E1: Kill zombie Electron processes                              │
+│   • See e2e-electron skill → Zombie Process Cleanup                  │
+│   • Kill any existing instances of the app                           │
+└─────────────────────────────────────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│ STEP E2: Launch Electron app                                         │
+│                                                                     │
+│ if launchTarget == "installed-app":                                   │
+│   electronApp = _electron.launch({                                   │
+│     executablePath: "{executablePath from probe-spec}"               │
+│   })                                                                 │
+│ if launchTarget == "dev-build":                                      │
+│   electronApp = _electron.launch({                                   │
+│     args: devLaunchArgs from probe-spec                              │
+│   })                                                                 │
+│                                                                     │
+│ If launch fails → return { status: "error",                          │
+│   reason: "Electron app failed to launch — check executablePath" }  │
+└─────────────────────────────────────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│ STEP E3: Get window and authenticate                                 │
+│                                                                     │
+│ window = electronApp.firstWindow()                                   │
+│ Wait for app ready (data-ready attribute or reasonable timeout)      │
+│                                                                     │
+│ if authHelper specified:                                             │
+│   Import and call auth helper to inject session                      │
+│   (e.g., adminAuthLogin from e2e/desktop/helpers/db.ts)             │
+└─────────────────────────────────────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│ STEP E4: Execute assertions (10s timeout per page)                   │
+│                                                                     │
+│ For each page in assertions:                                         │
+│   1. Navigate within the app window (window.goto or click nav)      │
+│   2. Wait for networkidle (max 5s)                                   │
+│   3. Run each check against the window DOM                           │
+│   4. Record result: { match: true/false, actual: "..." }            │
+│                                                                     │
+│ For each electronCheck (if specified):                                │
+│   1. Run electronApp.evaluate() with the check code                  │
+│   2. Compare result against expected value                           │
+│   3. Record result                                                   │
+└─────────────────────────────────────────────────────────────────────┘
+    │
+    ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│ STEP E5: Aggregate results + cleanup                                 │
+│                                                                     │
+│ Same aggregation as browser flow (confirmed/partially/contradicted)  │
+│ Close Electron app: electronApp.close()                              │
 └─────────────────────────────────────────────────────────────────────┘
     │
     ▼
