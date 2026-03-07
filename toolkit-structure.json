@@ -997,19 +997,19 @@
         "type": "fix",
         "scope": "skills",
         "description": "reset top-level verificationContract/verificationResults/pendingTests at all task boundaries — prevents stale verification state from causing test-flow skips",
-        "hash": "pending"
+        "hash": "e942c76"
       },
       {
         "type": "fix",
         "scope": "agents",
         "description": "add per-story verification state reset to Story Processing Pipeline Step 1 in builder.md",
-        "hash": "pending"
+        "hash": "e942c76"
       },
       {
         "type": "fix",
         "scope": "skills",
         "description": "add staleness check to test-flow Verification Contract Integration — contracts predating current story are discarded",
-        "hash": "pending"
+        "hash": "e942c76"
       },
       {
         "type": "refactor",
