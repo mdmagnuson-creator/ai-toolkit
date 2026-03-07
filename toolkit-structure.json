@@ -1007,19 +1007,19 @@
         "type": "feat",
         "scope": "skills",
         "description": "create electron-build-deploy skill — explicit kill → copy → relaunch command sequence for Electron apps before Playwright verification",
-        "hash": "pending"
+        "hash": "c905a17"
       },
       {
         "type": "feat",
         "scope": "skills",
         "description": "update test-flow Step 3.5 to load electron-build-deploy skill as first priority when buildDeploy is configured",
-        "hash": "pending"
+        "hash": "c905a17"
       },
       {
         "type": "docs",
         "scope": "prds",
         "description": "promote prd-electron-build-deploy from draft to ready — 6 stories, all open questions resolved, macOS only v1",
-        "hash": "pending"
+        "hash": "c905a17"
       },
       {
         "type": "feat",
