@@ -361,6 +361,10 @@ Ask: "Was the user's original issue visible in the browser or app UI?"
 
 ### Step 0.1b: Playwright Analysis Confirmation (MANDATORY)
 
+> **`testVerifySettings` gate:** Before running the probe, check `project.json` → `testVerifySettings.adHocUIVerify_Analysis` (default: `true` if absent).
+> If `false` → skip the entire probe with: `⏭️ Skipping Playwright analysis probe: testVerifySettings.adHocUIVerify_Analysis is false`
+> Proceed directly to Step 0.2 (dashboard).
+
 > ⛔ **CRITICAL: Code analysis MUST be confirmed via Playwright probe before showing the dashboard.**
 >
 > Code-only analysis can miss runtime state, CSS inheritance, dynamic rendering, and route guards.
@@ -450,7 +454,7 @@ Ask: "Was the user's original issue visible in the browser or app UI?"
    > `architecture.deployment` of `electron-only`/`desktop`/`tauri`, STOP — discard the spec
    > and regenerate using `transport: electron` with paths from `project.json` → `apps.desktop.testing`.
 
-3. **Build probe spec and invoke `@e2e-playwright` with `mode: "analysis-probe"`:**
+3. **Build probe spec and invoke `@ui-tester-playwright` with `mode: "analysis-probe"`:**
 
    **Browser Probe Spec** (web apps only):
 
@@ -501,7 +505,7 @@ Ask: "Was the user's original issue visible in the browser or app UI?"
    </probe-spec>
    ```
 
-   > 📚 **SKILL: e2e-electron** — Load for full Playwright Electron patterns (zombie cleanup, launch, IPC evaluation, auth helpers).
+   > 📚 **SKILL: ui-test-electron** — Load for full Playwright Electron patterns (zombie cleanup, launch, IPC evaluation, auth helpers).
 
    See `test-ui-verification` skill → "Analysis Probe Mode" for full probe specification format, assertion types, and execution flow (including Architecture-Aware Probe Dispatch and Electron Probe Flow).
 
@@ -586,7 +590,7 @@ Ask: "Was the user's original issue visible in the browser or app UI?"
 
 #### Auth Resolution Escalation (for probing authenticated pages)
 
-When the probe targets pages that require authentication, resolve auth **before** invoking `@e2e-playwright`:
+When the probe targets pages that require authentication, resolve auth **before** invoking `@ui-tester-playwright`:
 
 1. **Check `project.json` → `authentication`:**
    ```bash
@@ -1574,6 +1578,7 @@ Progress: 1/4 stories (25%)
 |--------|---------|---------|
 | `verified` | `✅ UI Verification: verified (screenshot captured)` | Browser test passed |
 | `not-required` | `➖ UI Verification: not required (no UI changes)` | No UI files changed |
+| `settings-disabled` | `➖ UI Verification: disabled (testVerifySettings)` | Setting is `false` in project.json |
 | `skipped` | `⚠️ UI Verification: SKIPPED (added to test debt)` | User chose to skip |
 
 ---

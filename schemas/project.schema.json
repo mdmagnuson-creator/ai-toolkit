@@ -520,7 +520,7 @@
         "neverSkip": {
           "type": "array",
           "items": { "type": "string" },
-          "description": "Activities that cannot be bypassed when they fail (e.g., [\"typecheck\", \"e2e-playwright\"])"
+          "description": "Activities that cannot be bypassed when they fail (e.g., [\"typecheck\", \"ui-tester-playwright\"])"
         },
         "storyAssessment": {
           "type": "object",
@@ -548,6 +548,37 @@
           "type": "boolean",
           "default": false,
           "description": "Enable quality-beyond-correctness checks (visual stability, performance budgets, CLS)"
+        },
+        "testVerifySettings": {
+          "type": "object",
+          "description": "Controls which automated Playwright invocation points are enabled. All default to true. Set individual settings to false to skip specific UI test/verification steps. Does NOT gate user-invoked workflows (@qa, @ui-test-full-app-auditor) or test file maintenance (developer.md/hammer.md editing existing tests).",
+          "properties": {
+            "adHocUIVerify_Analysis": {
+              "type": "boolean",
+              "default": true,
+              "description": "Ad-hoc mode: run Playwright analysis probe after code changes (adhoc-workflow Step 0.1b)"
+            },
+            "adHocUIVerify_StoryTest": {
+              "type": "boolean",
+              "default": true,
+              "description": "Ad-hoc mode: write/run Playwright tests for completed tasks (test-flow Step 5 ad-hoc)"
+            },
+            "prdUIVerify_Analysis": {
+              "type": "boolean",
+              "default": true,
+              "description": "PRD mode: run per-story Playwright verification after implementation (test-flow Step 3 PRD)"
+            },
+            "prdUIVerify_StoryTest": {
+              "type": "boolean",
+              "default": true,
+              "description": "PRD mode: write/run per-story Playwright tests (test-flow Step 5 PRD, tester.md Step 7)"
+            },
+            "prdUIVerify_PRDCompletionTest": {
+              "type": "boolean",
+              "default": true,
+              "description": "PRD mode: generate deferred UI tests at PRD completion (prd-workflow Ship Phase 'G' option)"
+            }
+          }
         }
       }
     },

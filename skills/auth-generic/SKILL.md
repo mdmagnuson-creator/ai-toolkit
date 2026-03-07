@@ -621,7 +621,7 @@ Use the `steps` array for forms that span multiple pages or have conditional log
 
 This skill is the fallback used by:
 - `screenshot` - when no provider-specific skill matches
-- `e2e-playwright` - for custom auth systems
+- `ui-tester-playwright` - for custom auth systems
 - `qa-browser-tester` - for any form-based auth
 
 Agents should:

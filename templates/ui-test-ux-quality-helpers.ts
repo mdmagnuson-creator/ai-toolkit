@@ -1,11 +1,11 @@
 /**
- * E2E Quality Helpers
+ * UI Test UX Quality Helpers
  *
  * Test helpers for quality-beyond-correctness testing. These helpers catch
  * visual glitches, performance issues, and intermediate bad states that
  * standard E2E tests miss.
  *
- * Copy this file to your project: e2e/helpers/e2e-quality-helpers.ts
+ * Copy this file to your project: e2e/helpers/ui-test-ux-quality-helpers.ts
  */
 
 import { Page, Locator, expect } from '@playwright/test';

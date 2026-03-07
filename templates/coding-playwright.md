@@ -137,7 +137,7 @@ But the user saw the event appear in the wrong place before correcting. The test
 
 ### Quality Helper Patterns
 
-Copy `e2e-quality-helpers.ts` to your project for these patterns:
+Copy `ui-test-ux-quality-helpers.ts` to your project for these patterns:
 
 **Negative Assertions** — assert bad states never appear during an action:
 ```typescript

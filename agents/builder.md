@@ -212,7 +212,7 @@ Test functionality is split into focused sub-skills. Load only what you need:
 | Prerequisite failure pattern | `test-prerequisite-detection` | ~19KB |
 | UI verification required | `test-ui-verification` | ~12KB |
 | Analysis probe (ad-hoc Phase 0) | `test-ui-verification` (analysis-probe mode) | ~12KB |
-| E2E tests to run | `test-e2e-flow` | ~11KB |
+| E2E tests to run | `ui-test-flow` | ~11KB |
 
 > ℹ️ **`test-flow` is the single entry point** for all quality checks and activity resolution. It includes the skip gate, activity resolution, quality check pipeline, and completion prompt — previously split across `test-quality-checks` and `test-activity-resolution`.
 
@@ -224,7 +224,7 @@ Test functionality is split into focused sub-skills. Load only what you need:
 | Unit test failure + fix | `test-flow` + `test-failure-handling` | ~32KB |
 | Ad-hoc analysis with probe | `adhoc-workflow` + `test-ui-verification` (probe mode) | ~73KB |
 | UI verification | `test-flow` + `test-ui-verification` + `test-verification-loop` | ~54KB |
-| E2E with prereq failure | `test-flow` + `test-e2e-flow` + `test-prerequisite-detection` | ~52KB |
+| E2E with prereq failure | `test-flow` + `ui-test-flow` + `test-prerequisite-detection` | ~52KB |
 
 > ⚠️ **Always start with `test-flow`** — it determines what to run and orchestrates the full pipeline.
 > **Never load all test sub-skills at once** — that's ~106KB combined.
@@ -1007,7 +1007,7 @@ See `prd-workflow` skill → "Post-Story Status Update" for full details.
 
 ## Deferred E2E Test Flow
 
-> 📚 **SKILL: test-e2e-flow** → "Deferred E2E Test Flow" — Load when running deferred E2E tests post-PRD-completion.
+> 📚 **SKILL: ui-test-flow** → "Deferred E2E Test Flow" — Load when running deferred E2E tests post-PRD-completion.
 
 ---
 
@@ -1120,7 +1120,7 @@ When delegating to sub-agents, **always pass a context block** with project path
 |-------|---------|
 | @developer | All code changes |
 | @tester | Test generation and orchestration |
-| @playwright-dev | E2E test writing |
+| @ui-tester-playwright | E2E test writing |
 | @critic | Code review |
 | @quality-critic | Visual/a11y/performance checks |
 
@@ -1150,7 +1150,7 @@ Load `builder-delegation` skill for full context block format and semantic searc
 > **Context to pass:** mode (`prd`/`adhoc`), storyId/taskId, changedFiles from git diff.
 >
 > 📚 **SKILL: test-flow** → Load for full pipeline details.
-> See also: `test-ui-verification`, `test-verification-loop`, `test-e2e-flow`, `test-failure-handling`.
+> See also: `test-ui-verification`, `test-verification-loop`, `ui-test-flow`, `test-failure-handling`.
 
 ---
 

@@ -11,13 +11,13 @@
 - Starting E2E tests that require login
 - Capturing screenshots of authenticated pages
 - Running QA tests on authenticated features
-- Any sub-agent (e2e-playwright, qa-browser-tester, screenshot) needs to authenticate
+- Any sub-agent (ui-tester-playwright, qa-browser-tester, screenshot) needs to authenticate
 - "auth config", "authentication check", "login required"
 
 ## Applicable Agents
 
 - **builder** — before delegating auth-dependent tasks
-- **e2e-playwright** — before writing authenticated tests
+- **ui-tester-playwright** — before writing authenticated tests
 - **qa-explorer** — before testing protected features
 - **qa-browser-tester** — before automating protected flows
 - **screenshot** — before capturing authenticated pages

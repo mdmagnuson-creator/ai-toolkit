@@ -109,7 +109,7 @@
       "condition": "testing.e2e is configured"
     },
     "e2e-write": {
-      "description": "Run @e2e-playwright to write new E2E tests",
+      "description": "Run @ui-tester-playwright to write new E2E tests",
       "needsDevServer": true,
       "condition": "testing.e2e is configured"
     },

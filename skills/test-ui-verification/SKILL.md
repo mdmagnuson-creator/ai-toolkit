@@ -238,7 +238,7 @@ Task complete (file changes detected)
 ┌─────────────────────────────────────────────────────────────────────┐
 │ STEP 2: Generate verification test                                   │
 │                                                                     │
-│ Run @e2e-playwright with mode: "verification"                       │
+│ Run @ui-tester-playwright with mode: "verification"                       │
 │   • Generates test in testDir                                        │
 │   • If selectorStrategy: "strict", adds data-testid to components  │
 └─────────────────────────────────────────────────────────────────────┘
@@ -335,7 +335,7 @@ test.describe('PaymentForm verification', () => {
 ### When `selectorStrategy: "strict"`
 
 1. **Before generating verification test**, check for `data-testid` attributes
-2. **If missing**, @e2e-playwright:
+2. **If missing**, @ui-tester-playwright:
    - Identifies components that need test IDs
    - Adds `data-testid` attributes to source code
    - Commits: "chore: add data-testid attributes for e2e testing"
@@ -450,7 +450,7 @@ Failure pattern:
 
 Analysis: Likely timing issue
 
-Action: Escalating to @e2e-playwright for fix...
+Action: Escalating to @ui-tester-playwright for fix...
 ```
 
 ### Verification After Fix
@@ -482,7 +482,7 @@ For persistently flaky tests:
 
 This mode is invoked by Builder during the ad-hoc workflow **Step 0.1b** — after code analysis (Step 0.1) and before showing the ANALYSIS COMPLETE dashboard (Step 0.2).
 
-**Trigger:** `@e2e-playwright` with `mode: "analysis-probe"`
+**Trigger:** `@ui-tester-playwright` with `mode: "analysis-probe"`
 
 ### Architecture-Aware Probe Dispatch (MANDATORY)
 
@@ -538,7 +538,7 @@ Analysis probe mode uses project-level verification settings but with lighter co
 
 ### Probe Specification Format
 
-Builder generates a probe specification from Step 0.1 code analysis and passes it to `@e2e-playwright`. **The spec format depends on the probe transport determined by Architecture-Aware Probe Dispatch above.**
+Builder generates a probe specification from Step 0.1 code analysis and passes it to `@ui-tester-playwright`. **The spec format depends on the probe transport determined by Architecture-Aware Probe Dispatch above.**
 
 #### Browser Probe Spec (web apps)
 
@@ -606,7 +606,7 @@ Builder generates a probe specification from Step 0.1 code analysis and passes i
 
 **Electron probe execution flow:**
 1. Read `executablePath` and `launchTarget` from `project.json` → `apps.desktop.testing`
-2. Kill any existing instances (see `e2e-electron` skill → Zombie Process Cleanup)
+2. Kill any existing instances (see `ui-test-electron` skill → Zombie Process Cleanup)
 3. Launch Electron: `_electron.launch({ executablePath })` or `_electron.launch({ args: devLaunchArgs })`
 4. Get first window: `electronApp.firstWindow()`
 5. Authenticate if needed using `authHelper` module
@@ -628,7 +628,7 @@ Builder generates a probe specification from Step 0.1 code analysis and passes i
 ### Probe Execution Flow
 
 ```
-Builder passes probe-spec to @e2e-playwright
+Builder passes probe-spec to @ui-tester-playwright
     │
     ▼
 ┌─────────────────────────────────────────────────────────────────────┐
@@ -685,12 +685,12 @@ Return ProbeResult to Builder
 > Loading `localhost:{devPort}` in a headless browser is NOT equivalent to probing the Electron app.
 
 ```
-Builder passes probe-spec with transport: "electron" to @e2e-playwright
+Builder passes probe-spec with transport: "electron" to @ui-tester-playwright
     │
     ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │ STEP E1: Kill zombie Electron processes                              │
-│   • See e2e-electron skill → Zombie Process Cleanup                  │
+│   • See ui-test-electron skill → Zombie Process Cleanup                  │
 │   • Kill any existing instances of the app                           │
 └─────────────────────────────────────────────────────────────────────┘
     │
@@ -891,7 +891,7 @@ Builder generates probe-spec:
         - selector: "button[type='submit']"  expect: "visible"
         - selector: ".spinner"               expect: "absent"
 
-@e2e-playwright runs probe:
+@ui-tester-playwright runs probe:
   ✅ button[type='submit'] → visible (match)
   ✅ .spinner → absent (match)
 

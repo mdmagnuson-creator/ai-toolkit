@@ -398,7 +398,7 @@ Map each stack element to required toolkit coverage:
 | `framework: express` | Node/Express coverage | `backend-critic-ts.md` |
 | `testing.unit.framework: jest` | Jest testers | `jest-tester.md` |
 | `testing.unit.framework: go` | Go testers | `go-tester.md` |
-| `testing.e2e.framework: playwright` | Playwright specialists | `playwright-dev.md`, `e2e-playwright.md` |
+| `testing.e2e.framework: playwright` | Playwright specialists | `ui-tester-playwright.md` |
 | `styling.framework: tailwind` | Tailwind critics | `tailwind-critic.md` |
 | `styling.darkMode.enabled: true` | Aesthetic critics | `aesthetic-critic.md` |
 | `infrastructure.cloudformation` | CFN specialists | `cloudformation-critic.md`, `aws-dev.md` |
@@ -441,7 +441,7 @@ For each template, check if the project stack matches any `applies_to` condition
      • TypeScript → backend-critic-ts.md
      • Next.js → react-dev.md, frontend-critic.md
      • Tailwind → tailwind-critic.md
-     • Playwright → playwright-dev.md, e2e-playwright.md
+     • Playwright → ui-tester-playwright.md
   
   ⚠️ Partial Coverage:
      • PostgreSQL → No dedicated postgres agent (using generic backend critics)

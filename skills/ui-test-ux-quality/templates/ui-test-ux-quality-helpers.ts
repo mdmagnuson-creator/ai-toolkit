@@ -1,5 +1,5 @@
 /**
- * E2E Quality Helpers
+ * UI Test UX Quality Helpers
  *
  * Quality-beyond-correctness testing utilities for Playwright.
  * Copy this file to your project's e2e/helpers/ directory.

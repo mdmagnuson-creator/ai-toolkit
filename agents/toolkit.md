@@ -876,7 +876,7 @@ Regenerate the manifest to reflect your changes:
    - Categorize by rules:
      - `mode: primary` → "primary" category
      - Name ends with `-dev` OR is `developer`, `hammer`, `overlord` → "implementation"
-     - Name ends with `-tester` OR is `tester`, `qa`, `qa-explorer`, `qa-browser-tester`, `e2e-playwright`, `e2e-reviewer` → "testing"
+     - Name ends with `-tester` OR is `tester`, `qa`, `qa-explorer`, `qa-browser-tester`, `ui-tester-playwright`, `ui-test-reviewer` → "testing"
      - Name ends with `-critic` OR is `critic` → "critics"
      - Everything else → "operational"
    - Update the appropriate category in `toolkit-structure.json`

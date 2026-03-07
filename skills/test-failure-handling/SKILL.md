@@ -320,7 +320,7 @@ Environment issue:
   Category: Process conflict
   This is an infrastructure issue, not a code problem.
 
-Matching skill found: e2e-electron
+Matching skill found: ui-test-electron
 Action: Loading skill and attempting recovery...
 ═══════════════════════════════════════════════════════════════════════
 ```

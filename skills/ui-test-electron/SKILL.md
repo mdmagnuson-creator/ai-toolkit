@@ -1,9 +1,9 @@
 ---
-name: e2e-electron
+name: ui-test-electron
 description: "Patterns for Playwright E2E tests for Electron applications. Use when testing desktop apps built with Electron. Triggers on: Electron tests, desktop E2E, Electron app testing."
 ---
 
-# E2E Electron Testing Skill
+# UI Test Electron Testing Skill
 
 This skill provides patterns and instructions for writing Playwright E2E tests for Electron applications.
 
@@ -621,5 +621,5 @@ const hasElectron = 'electron' in (pkgJson.devDependencies || {})
 
 ## Related Skills
 
-- `e2e-playwright` — General Playwright patterns (applies to renderer testing)
-- `e2e-quality` — Quality-beyond-correctness patterns (visual stability, etc.)
+- `ui-tester-playwright` — General Playwright patterns (applies to renderer testing)
+- `ui-test-ux-quality` — Quality-beyond-correctness patterns (visual stability, etc.)

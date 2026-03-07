@@ -509,7 +509,7 @@ async function getAuthenticatedContext(browser: Browser): Promise<BrowserContext
 
 This skill is used by:
 - `screenshot` - for capturing authenticated page screenshots
-- `e2e-playwright` - for E2E test authentication
+- `ui-tester-playwright` - for E2E test authentication
 - `qa-browser-tester` - for QA testing authenticated flows
 - `auth-headless` - can use this skill's API auth pattern
 

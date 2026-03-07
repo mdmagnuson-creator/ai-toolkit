@@ -1,10 +1,10 @@
 {
   "$schema": "https://opencode.ai/schemas/toolkit-structure.json",
   "version": "1.0.0",
-  "generatedAt": "2026-03-07T05:00:00Z",
+  "generatedAt": "2026-03-07T18:00:00Z",
   "repository": "https://github.com/mdmagnuson-creator/yo-go",
   "agents": {
-    "total": 64,
+    "total": 63,
     "categories": {
       "primary": {
         "description": "User-invokable primary agents",
@@ -25,8 +25,8 @@
             "description": "Maintains the AI toolkit - agents, skills, templates, and scaffolds"
           },
           {
-            "name": "e2e-auditor",
-            "file": "agents/e2e-auditor.md",
+            "name": "ui-test-full-app-auditor",
+            "file": "agents/ui-test-full-app-auditor.md",
             "description": "Autonomous E2E test auditor that analyzes apps and generates comprehensive test coverage"
           }
         ]
@@ -70,11 +70,6 @@
             "description": "Implements one task how the project wants"
           },
           {
-            "name": "playwright-dev",
-            "file": "agents/playwright-dev.md",
-            "description": "Implements Playwright test automation tasks"
-          },
-          {
             "name": "public-page-dev",
             "file": "agents/public-page-dev.md",
             "description": "Implements public-facing pages (marketing, legal, error) following brand guidelines and conversion best practices"
@@ -100,13 +95,13 @@
         "description": "Test creation and QA agents",
         "agents": [
           {
-            "name": "e2e-playwright",
-            "file": "agents/e2e-playwright.md",
+            "name": "ui-tester-playwright",
+            "file": "agents/ui-tester-playwright.md",
             "description": "Writes Playwright E2E tests for identified UI areas"
           },
           {
-            "name": "e2e-reviewer",
-            "file": "agents/e2e-reviewer.md",
+            "name": "ui-test-reviewer",
+            "file": "agents/ui-test-reviewer.md",
             "description": "Reviews UI changes and identifies all modified areas for E2E testing"
           },
           {
@@ -122,7 +117,7 @@
           {
             "name": "qa-browser-tester",
             "file": "agents/qa-browser-tester.md",
-            "description": "Writes Playwright tests for QA findings by inspecting pages and delegating to playwright-dev"
+            "description": "Writes Playwright tests for QA findings by inspecting pages and delegating to ui-tester-playwright"
           },
           {
             "name": "qa-explorer",
@@ -425,8 +420,8 @@
             "description": "Detect and classify test prerequisites and blockers. Triggers on: prerequisite failure, blocker detection, test dependencies."
           },
           {
-            "name": "test-e2e-flow",
-            "path": "skills/test-e2e-flow/SKILL.md",
+            "name": "ui-test-flow",
+            "path": "skills/ui-test-flow/SKILL.md",
             "description": "E2E test generation and execution workflow. Triggers on: run e2e, generate e2e, deferred e2e, e2e flow."
           },
           {
@@ -645,18 +640,18 @@
             "description": "Assess a CVE for exposure, exploitability, and remediation options across one or more repositories."
           },
           {
-            "name": "e2e-quality",
-            "path": "skills/e2e-quality/SKILL.md",
+            "name": "ui-test-ux-quality",
+            "path": "skills/ui-test-ux-quality/SKILL.md",
             "description": "Quality-beyond-correctness E2E testing patterns. Catches visual glitches, performance issues, layout shifts, and intermediate bad states. Triggers on: flicker test, visual stability, performance budget, negative assertion, CLS test, drag drop test, animation test."
           },
           {
-            "name": "e2e-electron",
-            "path": "skills/e2e-electron/SKILL.md",
-            "description": "Playwright E2E testing patterns for Electron desktop applications. Covers app launch, main/renderer process testing, IPC mocking, and native dialog handling. Triggers on: electron test, desktop app test, e2e-electron."
+            "name": "ui-test-electron",
+            "path": "skills/ui-test-electron/SKILL.md",
+            "description": "Playwright E2E testing patterns for Electron desktop applications. Covers app launch, main/renderer process testing, IPC mocking, and native dialog handling. Triggers on: electron test, desktop app test, ui-test-electron."
           },
           {
-            "name": "e2e-full-audit",
-            "path": "skills/e2e-full-audit/SKILL.md",
+            "name": "ui-test-full-app-audit",
+            "path": "skills/ui-test-full-app-audit/SKILL.md",
             "description": "Comprehensive E2E test auditing workflow. Analyzes apps, generates test manifests, and executes with 5-retry resilience. Triggers on: e2e audit, full coverage audit, comprehensive e2e."
           },
           {
@@ -727,8 +722,8 @@
         "description": "Tracks Builder session state for resumability. Lives at docs/builder-state.json in each project."
       },
       {
-        "name": "e2e-audit-manifest.schema",
-        "file": "schemas/e2e-audit-manifest.schema.json",
+        "name": "ui-test-audit-manifest.schema",
+        "file": "schemas/ui-test-audit-manifest.schema.json",
         "description": "Schema for tracking comprehensive E2E test audits with resilient execution and per-test commit tracking"
       },
       {

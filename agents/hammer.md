@@ -43,7 +43,7 @@ Use documentation lookup tools.
       - `.tf` files → delegate to @terraform-dev
       - CloudFormation YAML/JSON templates → delegate to @aws-dev
       - `Dockerfile`, `docker-compose.yml`, `.dockerignore` → delegate to @docker-dev
-      - Playwright test files (`.spec.ts`, `.test.ts` with Playwright imports) → delegate to @playwright-dev
+      - Playwright test files (`.spec.ts`, `.test.ts` with Playwright imports) → delegate to @ui-tester-playwright
       - If the task only touches config files, markdown, or simple glue code, implement it yourself without delegating.
    3. Write a clear task description for each specialist. Include:
       - What needs to be fixed (from the task description in `docs/felix.json`)

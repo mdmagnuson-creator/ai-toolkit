@@ -589,7 +589,7 @@ When the user describes a new feature:
      - If feature involves Electron app without `testing.framework: 'playwright-electron'` → include note in PRD:
        ```
        > 💡 **Testing Note:** This feature involves the Electron desktop app. 
-       > E2E tests should use the `e2e-electron` skill (Playwright Electron API).
+       > E2E tests should use the `ui-test-electron` skill (Playwright Electron API).
        > Consider setting `apps.desktop.testing.framework = 'playwright-electron'` in project.json.
        ```
      - If feature involves mobile app without testing config → include similar recommendation

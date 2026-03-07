@@ -225,7 +225,7 @@ Verification test FAILS
 │ • PREREQUISITE (code issue) ──► @developer                          │
 │ • FEATURE (code issue) ──► @developer                               │
 │ • ENVIRONMENT ──► Load skill-based recovery                         │
-│ • TEST_INVALID ──► @e2e-playwright for test fix                     │
+│ • TEST_INVALID ──► @ui-tester-playwright for test fix                     │
 └─────────────────────────────────────────────────────────────────────┘
     │
     ▼

@@ -132,7 +132,7 @@ function resolveActivities(changedFiles, diffContent, project):
     baseline: ["typecheck", "lint"],
     unit: Set(),
     critics: Set(),
-    e2e: "immediate",        # Always included — no isUIProject() gate
+    e2e: "immediate",        # Always resolved — gated by testVerifySettings at execution time
     e2eAreas: [],
     dependentSmoke: [],
     quality: Set(),
@@ -283,7 +283,7 @@ After @developer completes a task, run resolved activities in this order:
 | 3 | **Unit Tests** | Resolved testers | Yes, max 3 attempts |
 | 3.5 | **Rebuild/Relaunch** | `postChangeWorkflow` steps (or auto-inferred from `apps[]`) | Yes, max 3 attempts |
 | 4 | **Critics** | Resolved from patterns | Report findings, @developer fixes |
-| 5 | **E2E / Playwright** | Always included | Yes, configurable attempts (see Retry Strategy) |
+| 5 | **E2E / Playwright** | Gated by `testVerifySettings` (see Step 5 box below) | Yes, configurable attempts (see Retry Strategy) |
 | 6 | **Quality** | Resolved quality critics | Report findings |
 
 ### Pipeline Flow
@@ -361,7 +361,28 @@ Task/Story complete
 ┌─────────────────────────────────────────────────────────────────────┐
 │ 5. E2E / Playwright                                                  │
 │                                                                     │
-│ Playwright verification always runs (no isUIProject gate).           │
+│ **testVerifySettings gate (checked FIRST):**                         │
+│                                                                     │
+│ PRD mode:                                                            │
+│   - Check testVerifySettings.prdUIVerify_Analysis (default: true)    │
+│     If false → skip Playwright analysis/verification with:           │
+│     "⏭️ Skipping Playwright analysis: testVerifySettings             │
+│      .prdUIVerify_Analysis is false"                                 │
+│   - Check testVerifySettings.prdUIVerify_StoryTest (default: true)   │
+│     If false → skip UI test writing with:                            │
+│     "⏭️ Skipping UI test writing: testVerifySettings                 │
+│      .prdUIVerify_StoryTest is false"                                │
+│   - If BOTH are false → skip entire Step 5                           │
+│                                                                     │
+│ Ad-hoc mode:                                                         │
+│   - Check testVerifySettings.adHocUIVerify_StoryTest (default: true) │
+│     If false → skip UI test writing with:                            │
+│     "⏭️ Skipping UI test writing: testVerifySettings                 │
+│      .adHocUIVerify_StoryTest is false"                              │
+│                                                                     │
+│ **After passing the settings gate:**                                 │
+│                                                                     │
+│ Playwright verification runs (gated by testVerifySettings only).      │
 │                                                                     │
 │ Pipeline resolution:                                                 │
 │   1. Check for postChangeWorkflow override                           │
@@ -430,7 +451,7 @@ When `builder-state.json` contains a `verificationContract`, use it to guide ver
 | `activity: "typecheck"` | Baseline typecheck | `npm run typecheck` |
 | `activity: "lint"` | Baseline lint | `npm run lint` |
 | `activity: "unit-test"` | Unit test generation + run | @tester → `npm test` |
-| `activity: "e2e"` | E2E test generation + run | @e2e-playwright |
+| `activity: "e2e"` | E2E test generation + run | @ui-tester-playwright |
 | `activity: "critic"` | Code review | @critic |
 
 **Recording verification results:**
@@ -492,7 +513,7 @@ Options:
 | `lint` | ✅ Yes | Style issues don't break runtime |
 | `unit-test` | ✅ Yes | User accepts risk |
 | `critic` | ✅ Yes | Suggestions, not blockers |
-| `e2e-playwright` | ⚠️ Depends | See E2E bypass rules |
+| `ui-tester-playwright` | ⚠️ Depends | See E2E bypass rules |
 
 **E2E bypass rules:**
 - Activities triggered by `immediate` signals → Cannot skip
@@ -541,7 +562,12 @@ Options:
 
 > ⛔ **E2E write+run is ONE atomic operation. Writing a test without running it is never a valid stopping point.**
 
-1. Delegate to @playwright-dev (or @e2e-playwright for Electron) to write E2E tests
+> **`testVerifySettings` gate:** Before writing E2E tests, check the applicable setting:
+> - **Ad-hoc mode:** `testVerifySettings.adHocUIVerify_StoryTest` (default: `true` if absent)
+> - **PRD mode:** `testVerifySettings.prdUIVerify_StoryTest` (default: `true` if absent)
+> If `false` → skip with: `⏭️ Skipping UI test writing: testVerifySettings.{settingName} is false`
+
+1. Delegate to @ui-tester-playwright to write E2E tests
 2. **Immediately after writing**, run the tests — no user prompt between write and run
 3. If tests pass:
    ```
@@ -601,7 +627,7 @@ Load these specialized skills on demand — only when you reach that phase of te
 |------------|-----------------|
 | Run the 3-pass verification loop | `test-verification-loop` |
 | Detect/handle prerequisite failures | `test-prerequisite-detection` |
-| Execute E2E tests (PRD or ad-hoc) | `test-e2e-flow` |
+| Execute E2E tests (PRD or ad-hoc) | `ui-test-flow` |
 | Run Playwright UI verification | `test-ui-verification` |
 | Handle failures, manual fallback | `test-failure-handling` |
 | Resolve test base URL | `test-url-resolution` |

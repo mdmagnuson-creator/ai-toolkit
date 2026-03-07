@@ -180,7 +180,7 @@ By embedding the canonical content directly, Developer has the exact text in its
 |-------|---------|
 | @developer | All code changes |
 | @tester | Test generation and orchestration |
-| @playwright-dev | E2E test writing |
+| @ui-tester-playwright | E2E test writing |
 | @critic | Code review |
 | @quality-critic | Visual/a11y/performance checks |
 

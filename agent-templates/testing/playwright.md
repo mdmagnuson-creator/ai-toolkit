@@ -542,10 +542,10 @@ The user might have seen the event appear in the wrong location before correctin
 
 ### Quality Helpers
 
-Copy `e2e-quality-helpers.ts` from the yo-go to your project:
+Copy `ui-test-ux-quality-helpers.ts` from the yo-go to your project:
 
 ```bash
-cp ~/.config/opencode/templates/e2e-quality-helpers.ts {{PROJECT.paths.e2e || 'e2e'}}/helpers/
+cp ~/.config/opencode/templates/ui-test-ux-quality-helpers.ts {{PROJECT.paths.e2e || 'e2e'}}/helpers/
 ```
 
 ### Pattern 1: Negative Assertions
@@ -553,7 +553,7 @@ cp ~/.config/opencode/templates/e2e-quality-helpers.ts {{PROJECT.paths.e2e || 'e
 Assert bad states never appear during an action:
 
 ```typescript
-import { assertNeverAppears } from './helpers/e2e-quality-helpers';
+import { assertNeverAppears } from './helpers/ui-test-ux-quality-helpers';
 
 test('drag to time slot never shows event in wrong location', async ({ page }) => {
   const neverWrong = assertNeverAppears(
@@ -574,7 +574,7 @@ test('drag to time slot never shows event in wrong location', async ({ page }) =
 Fail if operations exceed acceptable durations:
 
 ```typescript
-import { withPerformanceBudget, PERFORMANCE_BUDGETS } from './helpers/e2e-quality-helpers';
+import { withPerformanceBudget, PERFORMANCE_BUDGETS } from './helpers/ui-test-ux-quality-helpers';
 
 test('modal opens within budget', async ({ page }) => {
   await withPerformanceBudget(page, {
@@ -593,7 +593,7 @@ test('modal opens within budget', async ({ page }) => {
 Catch elements that jump during load or interaction:
 
 ```typescript
-import { assertNoLayoutShift } from './helpers/e2e-quality-helpers';
+import { assertNoLayoutShift } from './helpers/ui-test-ux-quality-helpers';
 
 test('calendar does not shift when events load', async ({ page }) => {
   const stable = assertNoLayoutShift(page, {
@@ -612,7 +612,7 @@ test('calendar does not shift when events load', async ({ page }) => {
 Ensure elements don't flicker (mount/unmount/remount):
 
 ```typescript
-import { assertStableRender } from './helpers/e2e-quality-helpers';
+import { assertStableRender } from './helpers/ui-test-ux-quality-helpers';
 
 test('event list does not flicker during filter', async ({ page }) => {
   const stable = assertStableRender(page, {
@@ -631,7 +631,7 @@ test('event list does not flicker during filter', async ({ page }) => {
 Use Web Vitals for page load quality:
 
 ```typescript
-import { measureCLS, CLS_THRESHOLDS } from './helpers/e2e-quality-helpers';
+import { measureCLS, CLS_THRESHOLDS } from './helpers/ui-test-ux-quality-helpers';
 
 test('page load has acceptable CLS', async ({ page }) => {
   const cls = await measureCLS(page, async () => {

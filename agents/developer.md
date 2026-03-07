@@ -162,7 +162,7 @@ Load the `session-setup` skill to initialize session coordination:
    - `.tf` → @terraform-dev
    - CloudFormation → @aws-dev
    - Dockerfile → @docker-dev
-   - Playwright tests → @playwright-dev
+   - Playwright tests → @ui-tester-playwright
    - Config files, markdown, simple glue code → handle yourself
 
 4. **Run specialists in parallel** when working on independent areas

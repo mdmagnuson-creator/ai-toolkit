@@ -158,7 +158,7 @@ See `test-ui-verification` skill for full verification flow.
 |----------------|---------|--------------|
 | `PREREQUISITE` | Test failed before reaching the feature | Fix the prerequisite first |
 | `FEATURE` | Test failed on the feature assertion | Fix the feature |
-| `TEST_INVALID` | Test file has syntax/import error | @e2e-playwright fixes test |
+| `TEST_INVALID` | Test file has syntax/import error | @ui-tester-playwright fixes test |
 | `ENVIRONMENT` | Infrastructure issue (see below) | Skill-based recovery |
 
 **Detection method:**
@@ -180,7 +180,7 @@ Verification test fails
 │ │                                                                   │
 │ ├─── FEATURE ──► Normal fix loop with @developer                   │
 │ │                                                                   │
-│ ├─── TEST_INVALID ──► @e2e-playwright fixes test file              │
+│ ├─── TEST_INVALID ──► @ui-tester-playwright fixes test file              │
 │ │                                                                   │
 │ └─── ENVIRONMENT ──► Skill-based recovery (see below)              │
 └─────────────────────────────────────────────────────────────────────┘

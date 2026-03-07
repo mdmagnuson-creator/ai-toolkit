@@ -1,4 +1,4 @@
-# E2E Full Audit Skill
+# UI Test Full-App Audit Skill
 
 > Load this skill when performing comprehensive E2E test audits of applications.
 > Provides workflow patterns, manifest schema, and resilient execution strategies.
@@ -8,9 +8,9 @@
 - "run e2e audit"
 - "comprehensive e2e test"
 - "full test coverage"
-- "e2e-full-audit"
+- "ui-test-full-app-audit"
 - "audit all features"
-- When `@e2e-auditor` is invoked
+- When `@ui-test-full-app-auditor` is invoked
 
 ## Workflow Overview
 
@@ -30,7 +30,7 @@
 │                                                                 │
 │  3. GENERATE TESTS                                              │
 │     └─► For each manifest entry without a test file             │
-│     └─► Delegate to @e2e-playwright (audit-mode)                │
+│     └─► Delegate to @ui-tester-playwright (audit-mode)                │
 │     └─► Create auth helpers if needed                           │
 │                                                                 │
 │  4. EXECUTE                                                     │
@@ -53,7 +53,7 @@ The audit manifest tracks all tests and their execution status:
 
 ```json
 {
-  "$schema": "https://raw.githubusercontent.com/mdmagnuson-creator/yo-go/main/schemas/e2e-audit-manifest.schema.json",
+  "$schema": "https://raw.githubusercontent.com/mdmagnuson-creator/yo-go/main/schemas/ui-test-audit-manifest.schema.json",
   "version": "1.0.0",
   "generatedAt": "2026-02-28T10:00:00Z",
   "project": {
@@ -531,8 +531,8 @@ Before running audit, ensure:
 
 | Agent | Integration |
 |-------|-------------|
-| `@e2e-auditor` | Primary consumer of this skill |
-| `@e2e-playwright` | Writes individual tests (audit-mode) |
+| `@ui-test-full-app-auditor` | Primary consumer of this skill |
+| `@ui-tester-playwright` | Writes individual tests (audit-mode) |
 | `@builder` | May invoke auditor before PRD completion |
 | `@tester` | Can delegate to auditor for full coverage |
 | `@qa` | Complementary: QA finds bugs, auditor verifies features |

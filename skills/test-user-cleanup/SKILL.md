@@ -546,7 +546,7 @@ Clean up related records first, or configure CASCADE deletes in your schema.
 ## Integration
 
 This skill is used after test runs by:
-- `e2e-playwright` - when `cleanup.trigger` is `auto`
+- `ui-tester-playwright` - when `cleanup.trigger` is `auto`
 - CI/CD pipelines - when `cleanup.trigger` is `scheduled`
 - Manual invocation - when `cleanup.trigger` is `manual`
 

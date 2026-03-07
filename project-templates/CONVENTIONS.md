@@ -982,7 +982,7 @@ Specific names: get_event_details (not just get_event)"
 
 ## E2E Testing Conventions
 
-> Used by: e2e-playwright, e2e-reviewer, qa agents
+> Used by: ui-tester-playwright, ui-test-reviewer, qa agents
 
 ### Test Framework
 

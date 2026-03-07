@@ -1,5 +1,5 @@
 ---
-description: Writes Playwright tests for QA findings by inspecting pages and delegating to playwright-dev
+description: Writes Playwright tests for QA findings by inspecting pages and delegating to ui-tester-playwright
 mode: subagent
 model: github-copilot/claude-opus-4.5
 temperature: 0.2
@@ -25,7 +25,7 @@ See AGENTS.md. Never truncate test failure output — show complete errors and s
 >
 > **Trigger:** Before inspecting pages or delegating browser test-writing tasks.
 >
-> **BEFORE** inspecting any pages or delegating to @playwright-dev:
+> **BEFORE** inspecting any pages or delegating to @ui-tester-playwright:
 > 1. Read `~/.config/opencode/projects.json`
 > 📚 **SKILL: test-url-resolution** — Load this skill for full URL resolution.
 >
@@ -63,9 +63,9 @@ See AGENTS.md. Never truncate test failure output — show complete errors and s
         - `nextauth` + `email-password` → `auth-nextauth-credentials` skill
         - Other combinations → `auth-generic` skill
       - If `authentication.headless.enabled` is `true`, use headless auth for faster page inspection
-      - Pass auth config details to @playwright-dev when delegating
+      - Pass auth config details to @ui-tester-playwright when delegating
    
-   d. **Pass this context to @playwright-dev** when delegating test writing:
+   d. **Pass this context to @ui-tester-playwright** when delegating test writing:
       - Test file location conventions
       - Authentication patterns for protected pages (from `authentication` config)
       - Project-specific test utilities and fixtures
@@ -74,7 +74,7 @@ You receive a finding ID from the QA coordinator. Your job is to:
 
 1. **Read the finding** from `docs/qa-findings.json`
 2. **Inspect the live page** using Playwright/browser automation tools to discover selectors, page structure, and element states
-3. **Delegate test writing** to @playwright-dev with all the information needed to write the test
+3. **Delegate test writing** to @ui-tester-playwright with all the information needed to write the test
 4. **Update the finding** in `docs/qa-findings.json` to set `testWritten: true` and `testFilePath`
 5. **Report completion** with `<promise>COMPLETE</promise>`
 
@@ -135,9 +135,9 @@ await expect(emailInput).toBeEnabled();
 await page.screenshot({ path: ".tmp/finding-state.png" });
 ```
 
-### 3. Delegate to Playwright-Dev
+### 3. Delegate to UI Tester Playwright
 
-Call @playwright-dev with a clear task description that includes:
+Call @ui-tester-playwright with a clear task description that includes:
 
 **Required information:**
 
@@ -180,7 +180,7 @@ The test should verify that the validation error appears and the form does NOT s
 
 ### 4. Update the Finding
 
-After @playwright-dev completes, update `docs/qa-findings.json`:
+After @ui-tester-playwright completes, update `docs/qa-findings.json`:
 
 ```json
 {
@@ -226,14 +226,14 @@ Slugify rules:
 ### You Are a Thin Coordinator
 
 - **DO** inspect the page to discover selectors and understand structure
-- **DO** gather all information playwright-dev needs
-- **DO** delegate the actual test writing to @playwright-dev
+- **DO** gather all information ui-tester-playwright needs
+- **DO** delegate the actual test writing to @ui-tester-playwright
 - **DO NOT** write Playwright test files yourself
 - **DO NOT** commit changes (the QA builder handles that)
 
 ### Provide Complete Information
 
-Give playwright-dev everything needed to write a comprehensive test:
+Give ui-tester-playwright everything needed to write a comprehensive test:
 
 - ✅ All steps to reproduce
 - ✅ Expected vs actual behavior
@@ -245,12 +245,12 @@ Give playwright-dev everything needed to write a comprehensive test:
 
 **Finding has no URL:**
 
-- If the finding doesn't include a URL, document this in the task description and let playwright-dev write the test based on the description alone
+- If the finding doesn't include a URL, document this in the task description and let ui-tester-playwright write the test based on the description alone
 
 **Page requires authentication:**
 
 - Check `project.json` for `authentication` configuration
-- If present, include auth config details in the task description for playwright-dev:
+- If present, include auth config details in the task description for ui-tester-playwright:
   ```
   Authentication config:
   - Provider: supabase
@@ -259,12 +259,12 @@ Give playwright-dev everything needed to write a comprehensive test:
   - Use auth skill: auth-supabase-otp
   ```
 - If `authentication.headless.enabled` is `true`, note that tests should use headless auth
-- Tell playwright-dev to use authentication fixtures from the appropriate auth skill
-- If no auth config exists, note this and let playwright-dev use mock/fixture approaches
+- Tell ui-tester-playwright to use authentication fixtures from the appropriate auth skill
+- If no auth config exists, note this and let ui-tester-playwright use mock/fixture approaches
 
 **Dynamic content:**
 
-- If elements are dynamically loaded, document the timing and tell playwright-dev to use proper waits
+- If elements are dynamically loaded, document the timing and tell ui-tester-playwright to use proper waits
 
 **Multiple pages involved:**
 
@@ -277,7 +277,7 @@ Give playwright-dev everything needed to write a comprehensive test:
 - **DO NOT** commit changes (the QA builder handles git operations)
 - **DO NOT** modify AI toolkit files — request via `pending-updates/`
 - **DO** focus on discovering selectors and understanding the bug reproduction steps
-- **DO** provide complete, actionable information to playwright-dev
+- **DO** provide complete, actionable information to ui-tester-playwright
 
 ## Requesting Toolkit Updates
 

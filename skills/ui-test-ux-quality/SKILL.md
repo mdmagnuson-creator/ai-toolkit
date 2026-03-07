@@ -1,5 +1,5 @@
 ---
-name: e2e-quality
+name: ui-test-ux-quality
 description: "Quality-beyond-correctness E2E testing patterns. Catches visual glitches, performance issues, layout shifts, and intermediate bad states. Triggers on: flicker test, visual stability, performance budget, negative assertion, CLS test, drag drop test, animation test."
 ---
 
@@ -30,7 +30,7 @@ But users experience the **entire operation**, not just the end result. A drag-d
 Assert that bad states **never appear** during an operation:
 
 ```typescript
-import { assertNeverAppears } from './e2e-quality-helpers';
+import { assertNeverAppears } from './ui-test-ux-quality-helpers';
 
 test('drag to time slot never shows event in All Day row', async ({ page }) => {
   // Start monitoring for the bad state BEFORE the action
@@ -56,7 +56,7 @@ test('drag to time slot never shows event in All Day row', async ({ page }) => {
 Fail tests when operations exceed acceptable durations:
 
 ```typescript
-import { withPerformanceBudget } from './e2e-quality-helpers';
+import { withPerformanceBudget } from './ui-test-ux-quality-helpers';
 
 test('event modal opens within performance budget', async ({ page }) => {
   await withPerformanceBudget(page, {
@@ -86,7 +86,7 @@ test('drag-drop completes render quickly', async ({ page }) => {
 Detect elements that jump or shift during operations:
 
 ```typescript
-import { assertNoLayoutShift } from './e2e-quality-helpers';
+import { assertNoLayoutShift } from './ui-test-ux-quality-helpers';
 
 test('calendar does not shift when loading events', async ({ page }) => {
   // Monitor specific element(s) for position changes
@@ -119,7 +119,7 @@ test('sidebar toggle does not cause content jump', async ({ page }) => {
 Ensure elements don't appear/disappear/reappear during operations:
 
 ```typescript
-import { assertStableRender } from './e2e-quality-helpers';
+import { assertStableRender } from './ui-test-ux-quality-helpers';
 
 test('event list does not flicker during filter', async ({ page }) => {
   // Counts mount/unmount cycles for matching elements
@@ -140,7 +140,7 @@ test('event list does not flicker during filter', async ({ page }) => {
 Use the browser's Layout Instability API:
 
 ```typescript
-import { measureCLS } from './e2e-quality-helpers';
+import { measureCLS } from './ui-test-ux-quality-helpers';
 
 test('page load has acceptable CLS', async ({ page }) => {
   const cls = await measureCLS(page, async () => {
@@ -160,7 +160,7 @@ test('page load has acceptable CLS', async ({ page }) => {
 Copy the helpers file to your project's e2e directory:
 
 ```
-templates/e2e-quality-helpers.ts → your-project/e2e/helpers/e2e-quality-helpers.ts
+templates/ui-test-ux-quality-helpers.ts → your-project/e2e/helpers/ui-test-ux-quality-helpers.ts
 ```
 
 Or import key patterns directly into test files.
@@ -189,7 +189,7 @@ Use Playwright's test fixtures to make helpers available:
 ```typescript
 // e2e/fixtures.ts
 import { test as base } from '@playwright/test';
-import * as quality from './helpers/e2e-quality-helpers';
+import * as quality from './helpers/ui-test-ux-quality-helpers';
 
 export const test = base.extend<{ quality: typeof quality }>({
   quality: async ({}, use) => {
@@ -357,10 +357,10 @@ test('event timing change persists after save', async ({ page }) => {
 
 ### Using the assertStateStability Helper
 
-For cleaner test code, use the helper from `templates/e2e-quality-helpers.ts`:
+For cleaner test code, use the helper from `templates/ui-test-ux-quality-helpers.ts`:
 
 ```typescript
-import { assertStateStability } from './helpers/e2e-quality-helpers';
+import { assertStateStability } from './helpers/ui-test-ux-quality-helpers';
 
 test('event timing change persists after save', async ({ page }) => {
   await page.selectOption('[data-testid="timing-select"]', 'slot-am');
@@ -424,7 +424,7 @@ await expect(page.locator('.timed-area .event')).toBeVisible(); // ✅ Passes
 **The Solution:** Define all possible locations, then assert the element is in exactly one:
 
 ```typescript
-import { expectMutualExclusivity, snapshotElementLocations } from './helpers/e2e-quality-helpers';
+import { expectMutualExclusivity, snapshotElementLocations } from './helpers/ui-test-ux-quality-helpers';
 
 test('event appears in exactly one location after timing change', async ({ page }) => {
   // Define all possible locations for this element
@@ -489,7 +489,7 @@ test.only('debug: where is the event?', async ({ page }) => {
 For quick assertions without monitoring duration:
 
 ```typescript
-import { assertMutualExclusivity } from './helpers/e2e-quality-helpers';
+import { assertMutualExclusivity } from './helpers/ui-test-ux-quality-helpers';
 
 // Instant check - no duration monitoring
 await assertMutualExclusivity(page, {

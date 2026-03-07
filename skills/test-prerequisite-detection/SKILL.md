@@ -115,7 +115,7 @@ interface FailureClassification {
   confidence: "high" | "medium" | "low";
   existingTest?: string;
   suggestedFix?: {
-    agent: "@developer" | "@e2e-playwright";
+    agent: "@developer" | "@ui-tester-playwright";
     description: string;
   };
 }
@@ -163,9 +163,9 @@ Entering automated fix loop...
 
 | Category | Detection Patterns | Example Skills |
 |----------|-------------------|----------------|
-| **Process management** | `EADDRINUSE`, `already running`, `single instance` | `e2e-electron` |
+| **Process management** | `EADDRINUSE`, `already running`, `single instance` | `ui-test-electron` |
 | **Port/service availability** | `ECONNREFUSED`, `port in use`, connection timeout | `start-dev-server` |
-| **Native app bootstrap** | Platform-specific launch errors | `e2e-electron`, `tauri-testing` |
+| **Native app bootstrap** | Platform-specific launch errors | `ui-test-electron`, `tauri-testing` |
 | **External services** | HTTP 503, 429, `service unavailable` | N/A (wait or mock) |
 | **File system** | `EACCES`, `EBUSY`, `EPERM` | Manual intervention |
 

@@ -875,7 +875,7 @@ function clearAuthState(): void {
 ## Integration
 
 This skill is used by:
-- `e2e-playwright` - for fast authenticated tests
+- `ui-tester-playwright` - for fast authenticated tests
 - `screenshot` - for capturing authenticated pages quickly
 - `qa-browser-tester` - for rapid QA testing
 

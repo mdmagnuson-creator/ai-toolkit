@@ -1,9 +1,9 @@
 ---
-name: test-e2e-flow
-description: "PRD and ad-hoc E2E test execution flows. Use when running E2E tests, handling deferred tests, or managing E2E test execution. Triggers on: run e2e, e2e tests, deferred e2e, prd e2e, playwright tests."
+name: ui-test-flow
+description: "PRD and ad-hoc UI test execution flows. Use when running E2E tests, handling deferred tests, or managing E2E test execution. Triggers on: run e2e, e2e tests, deferred e2e, prd e2e, playwright tests."
 ---
 
-# Test E2E Flow
+# UI Test Flow
 
 > Load this skill when: running E2E tests, handling PRD/ad-hoc mode E2E execution, or managing deferred E2E tests.
 
@@ -138,7 +138,7 @@ fi
 **If ELECTRON_MODE=true:**
 - Skip Steps 1 and 2 (no base URL or dev server needed — Electron launches the app directly)
 - Jump to **Step 3E: Run Electron Tests** (below)
-- Load the `e2e-electron` skill for test writing patterns
+- Load the `ui-test-electron` skill for test writing patterns
 
 **If ELECTRON_MODE=false:**
 - Continue with existing Steps 1, 2, 3 (browser flow)
@@ -228,7 +228,7 @@ fi
 - No dev server check — the Electron app IS the server
 - Workers must be 1 (`--workers=1`) — Electron tests cannot parallelize
 - Timeout should be 60s+ (Electron apps take longer to start)
-- Global setup should kill zombie Electron processes (see `e2e-electron` skill)
+- Global setup should kill zombie Electron processes (see `ui-test-electron` skill)
 
 **If executablePath is configured in project.json:**
 ```bash
@@ -240,7 +240,7 @@ npx playwright test --config="$ELECTRON_CONFIG" --workers=1 --reporter=list
 ### Playwright Config: No webServer
 
 > ⚠️ **Electron projects:** Do NOT use the browser config below. Electron tests use `_electron.launch()` 
-> instead of `baseURL`. See the `e2e-electron` skill for the correct Playwright config pattern.
+> instead of `baseURL`. See the `ui-test-electron` skill for the correct Playwright config pattern.
 
 > ⚠️ **Do NOT use Playwright's `webServer` config option.**
 >
@@ -288,9 +288,12 @@ DEPLOYMENT=$(jq -r '.architecture.deployment // empty' docs/project.json)
 if [ "$DEPLOYMENT" = "electron-only" ]; then
   echo "✅ Electron-only project — no devPort needed for E2E"
 else
+  # Resolve test URL using the priority chain (see test-url-resolution skill)
+  # testVerifySettings gate should have been checked by the caller before reaching here
   DEV_PORT=$(jq -r '.projects[] | select(.path == "'"$(pwd)"'") | .devPort' ~/.config/opencode/projects.json)
   if [ "$DEV_PORT" = "null" ]; then
-    echo "⏭️  Cannot run E2E tests: Project has no local runtime (devPort: null)"
+    echo "❌ Cannot resolve test URL: devPort is null and no testBaseUrl or staging URL configured"
+    echo "   Configure testBaseUrl in projects.json or set up a staging environment"
   fi
 fi
 ```
@@ -354,16 +357,16 @@ On successful E2E tests:
 
 ## E2E Auditor Integration
 
-The `@e2e-auditor` agent provides **proactive full-app E2E auditing**.
+The `@ui-test-full-app-auditor` agent provides **proactive full-app E2E auditing**.
 
 ### When to Use E2E Auditor
 
-| Scenario | Use @e2e-auditor |
+| Scenario | Use @ui-test-full-app-auditor |
 |----------|------------------|
 | Full regression testing before release | ✅ |
 | Periodic coverage audits | ✅ |
 | After large refactors | ✅ |
-| Testing a specific story change | ❌ Use @e2e-playwright |
+| Testing a specific story change | ❌ Use @ui-tester-playwright |
 
 ### Key Differences from Story-Driven Testing
 
@@ -378,7 +381,7 @@ The `@e2e-auditor` agent provides **proactive full-app E2E auditing**.
 ### Invoking E2E Auditor
 
 ```
-Run @e2e-auditor with:
+Run @ui-test-full-app-auditor with:
   project: {project path}
   mode: full-audit | resume | prd-driven
   prd: {prd path, if prd-driven mode}

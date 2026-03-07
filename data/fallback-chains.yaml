@@ -73,8 +73,8 @@ chains:
     description: "Go tests with testify"
     
   playwright-tests:
-    primary: e2e-playwright
-    alternatives: [playwright-dev, developer]
+    primary: ui-tester-playwright
+    alternatives: [developer]
     description: "Playwright E2E tests"
 
   # ═══════════════════════════════════════════════════════════════════════

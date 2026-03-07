@@ -66,10 +66,7 @@ Use documentation lookup tools.
       3. Environment → `VERCEL_URL`, `DEPLOY_URL`, etc. (preview detection)
       4. `project.json` → `environments.staging.url` (staging config)
       5. `projects.json` → `devPort` → `http://localhost:${devPort}`
-      6. `null` → cannot test (skip E2E)
-      
-      **Old behavior (devPort: null → skip):** Now replaced with URL resolution.
-      Projects without `devPort` can still run E2E tests if they have `testBaseUrl` or staging URL.
+      6. `null` → cannot resolve URL (report error, do not silently skip)
       
       Save the resolved URL for the E2E phase.
    
@@ -79,7 +76,7 @@ Use documentation lookup tools.
    e. **Check for platform-specific apps (Electron, mobile, etc.):**
       - Read `~/.config/opencode/data/skill-mapping.json` for routing decisions
       - Scan `project.json` apps for platform-specific frameworks:
-        - `framework: 'electron'` or `type: 'desktop'` → route E2E to @e2e-playwright with `e2e-electron` skill hint
+        - `framework: 'electron'` or `type: 'desktop'` → route E2E to @ui-tester-playwright with `ui-test-electron` skill hint
         - `framework: 'react-native'` or `type: 'mobile'` → route E2E to appropriate mobile testing (stub for future)
         - `framework: 'flutter'` → route E2E to appropriate flutter testing (stub for future)
       - **Detection fallback** if not declared in `project.json`:
@@ -91,7 +88,7 @@ Use documentation lookup tools.
         ```
         Platform: Electron desktop app
         App path: apps/desktop/
-        Load skill: e2e-electron
+        Load skill: ui-test-electron
         Testing framework: playwright-electron
         ```
    
@@ -133,7 +130,7 @@ Use documentation lookup tools.
    - `<project>/docs/agents/react-tester.md` or `<project>/docs/agents/jest-react-tester.md` → use instead of global @react-tester
    - `<project>/docs/agents/jest-tester.md` → use instead of global @jest-tester for backend TS/JS
    - `<project>/docs/agents/pytest-tester.md` → use for Python test coverage
-   - `<project>/docs/agents/playwright-tester.md` → use instead of global @e2e-playwright
+   - `<project>/docs/agents/playwright-tester.md` → use instead of global @ui-tester-playwright
    - If a project-specific tester exists, **use the Task tool** with `subagent_type: "general"` and include the full prompt from that file PLUS the project context you loaded in Step 0
    
    **Fall back to global testers** when no project-specific tester exists:
@@ -162,17 +159,17 @@ Use documentation lookup tools.
    - Commit ALL unit test files with message: `test: [Story ID] - unit tests for [description]`
    - Use a commit message that describes what test coverage was added
 
-7. **E2E Testing Phase** (if story has UI changes):
-   - **First, check if E2E is possible:**
-     - If `devPort` is `null` (from projects.json), skip E2E entirely with message:
+7. **E2E Testing Phase**:
+   - **First, check `testVerifySettings` gate:**
+     - Read `project.json` → `testVerifySettings.prdUIVerify_StoryTest` (default: `true` if absent)
+     - If `false` → skip E2E entirely with message:
        ```
-       ⏭️  Skipping E2E tests: Project has no local runtime (devPort: null)
+       ⏭️ Skipping E2E tests: testVerifySettings.prdUIVerify_StoryTest is false
        ```
      - Continue to step 8
-   - Check if the story modified UI files (`.tsx` in components, pages, or app directories)
-   - If UI was modified, proceed with E2E testing:
+   - Proceed with E2E testing:
    
-   a. **Run @e2e-reviewer** - Delegate to the e2e-reviewer agent:
+   a. **Run @ui-test-reviewer** - Delegate to the ui-test-reviewer agent:
       - Provide the story context (ID, title, what was implemented)
       - The agent will:
         - Identify all UI areas modified
@@ -185,7 +182,7 @@ Use documentation lookup tools.
       - If there are **Critical Issues**: report to the calling agent (the implementation needs fixes first)
       - If there are only **Warnings** or the review is clean: proceed to write E2E tests
    
-   c. **Run @e2e-playwright** - Delegate to the e2e-playwright agent:
+   c. **Run @ui-tester-playwright** - Delegate to the ui-tester-playwright agent:
       - Provide the UI area IDs from `docs/e2e-areas.json` that need test coverage
       - The agent will:
         - Write Playwright E2E tests in `apps/web/e2e/`
@@ -401,7 +398,7 @@ scope: since-checkpoint
    Check git diff to understand what changed.
    ```
    
-   For UI files without E2E coverage, also route to @e2e-playwright.
+   For UI files without E2E coverage, also route to @ui-tester-playwright.
 
 6. **Update checkpoint**
    
@@ -690,15 +687,15 @@ Before routing E2E tests, check for platform-specific apps using `data/skill-map
 
 | App Type | Framework | E2E Route | Skill to Load |
 |----------|-----------|-----------|---------------|
-| `desktop` | `electron` | @e2e-playwright | `e2e-electron` |
-| `desktop` | `tauri` | @e2e-playwright | `e2e-tauri` (future) |
+| `desktop` | `electron` | @ui-tester-playwright | `ui-test-electron` |
+| `desktop` | `tauri` | @ui-tester-playwright | `e2e-tauri` (future) |
 | `mobile` | `react-native`, `expo` | @e2e-mobile (future) | `e2e-mobile` |
 | `mobile` | `flutter` | @e2e-flutter (future) | `e2e-flutter` |
-| `frontend` | any web | @e2e-playwright | none |
+| `frontend` | any web | @ui-tester-playwright | none |
 
 **Electron E2E delegation example:**
 
-When routing to @e2e-playwright for an Electron app:
+When routing to @ui-tester-playwright for an Electron app:
 
 ```
 E2E tests needed for Electron desktop app
@@ -707,7 +704,7 @@ E2E tests needed for Electron desktop app
 - Platform: Electron desktop app
 - App path: apps/desktop/
 - Main entry: apps/desktop/src/main/index.ts
-- Load skill: e2e-electron
+- Load skill: ui-test-electron
 - Testing framework: playwright-electron
 
 ## Launch Target Configuration
@@ -742,9 +739,9 @@ When analyzing stories for test coverage, identify if the story involves **data 
 | Drag-drop / reordering | Require position stability tests |
 | Realtime features | Require extended stability window (5+ seconds) |
 
-**When routing to @playwright-dev for mutation stories**, include explicit instruction:
+**When routing to @ui-tester-playwright for mutation stories**, include explicit instruction:
 
-> "This story involves [mutation type]. Include stability assertions using the `assertStateStability` pattern from the e2e-quality skill. Verify: (1) immediate state, (2) stable state for 2+ seconds, (3) persistence after refresh."
+> "This story involves [mutation type]. Include stability assertions using the `assertStateStability` pattern from the ui-test-ux-quality skill. Verify: (1) immediate state, (2) stable state for 2+ seconds, (3) persistence after refresh."
 
 ### Frontend Files → @react-tester
 - `.tsx`, `.jsx` (React components)
@@ -846,9 +843,9 @@ See AGENTS.md for format. Your filename prefix: `YYYY-MM-DD-tester-`
    - Commit: `test: US-042 - unit tests for user profile endpoint and component`
 
 5. E2E Testing (UI was modified):
-   - Run @e2e-reviewer to identify and verify UI areas
+   - Run @ui-test-reviewer to identify and verify UI areas
    - Read `docs/e2e-review.md` - check for issues
-   - Run @e2e-playwright to write E2E tests for the profile page
+   - Run @ui-tester-playwright to write E2E tests for the profile page
    - Commit: `test: US-042 - e2e tests for user profile page`
 
 6. Signal: `<promise>COMPLETE</promise>`

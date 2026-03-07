@@ -778,9 +778,9 @@ If `state: "MERGED"`:
    ═══════════════════════════════════════════════════════════════════════
    ```
    
-   **Handle response:**
-   - "E" → Run E2E tests (see Deferred E2E Test Flow in builder.md)
-   - "G" → Run @playwright-dev to generate E2E tests for the PRD's stories, then run them
+    **Handle response:**
+    - "E" → Check `testVerifySettings.prdUIVerify_PRDCompletionTest` (default: `true` if absent). If `false` → skip with: `⏭️ Skipping E2E tests: testVerifySettings.prdUIVerify_PRDCompletionTest is false`. If `true` → Run E2E tests (see Deferred E2E Test Flow in builder.md)
+    - "G" → Check `testVerifySettings.prdUIVerify_PRDCompletionTest` (default: `true` if absent). If `false` → skip with: `⏭️ Skipping deferred E2E generation: testVerifySettings.prdUIVerify_PRDCompletionTest is false`. If `true` → Run @ui-tester-playwright to generate E2E tests for the PRD's stories, then run them
    - "S" → Log skip reason, proceed to step 3 (archive and complete)
    - "L" → Stop here, user will run `[E]` from dashboard later
    

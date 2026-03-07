@@ -10,7 +10,7 @@
         "framework": "electron",
         "appType": "desktop",
         "skills": {
-          "e2e": "e2e-electron",
+          "e2e": "ui-test-electron",
           "development": null
         },
         "detectBy": ["framework", "package.json:electron"],
@@ -74,12 +74,12 @@
     "mappings": [
       {
         "testingFramework": "playwright",
-        "skill": "e2e-playwright",
+        "skill": "ui-tester-playwright",
         "detectBy": ["testing.e2e.framework", "package.json:@playwright/test"]
       },
       {
         "testingFramework": "playwright-electron",
-        "skill": "e2e-electron",
+        "skill": "ui-test-electron",
         "detectBy": ["testing.e2e.framework", "apps.*.testing.framework"]
       },
       {
@@ -125,8 +125,8 @@
     "rules": [
       {
         "condition": "apps.*.framework === 'electron' || apps.*.testing.framework === 'playwright-electron'",
-        "route": "e2e-playwright",
-        "loadSkill": "e2e-electron",
+        "route": "ui-tester-playwright",
+        "loadSkill": "ui-test-electron",
         "context": "Pass app path and electron main entry point"
       },
       {
@@ -143,7 +143,7 @@
       },
       {
         "condition": "apps.*.type === 'frontend' || apps.*.type === 'fullstack'",
-        "route": "e2e-playwright",
+        "route": "ui-tester-playwright",
         "loadSkill": null,
         "context": "Standard web E2E testing"
       }
@@ -154,7 +154,7 @@
     "description": "Suggestions for Builder/Planner when certain frameworks are detected",
     "suggestions": [
       {
-        "trigger": "electron detected without e2e-electron skill loaded",
+        "trigger": "electron detected without ui-test-electron skill loaded",
         "message": "Detected Electron app at {appPath}. Consider using `playwright-electron` for E2E testing.",
         "recommendation": "Set apps.{appName}.testing.framework = 'playwright-electron'"
       },
