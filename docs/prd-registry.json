@@ -186,6 +186,15 @@
       "createdAt": "2026-03-07",
       "stories": 13,
       "notes": "Merges playwright-dev into e2e-playwright, renames all e2e-* to ui-* naming convention, introduces testVerifySettings as universal Playwright gate, simplifies 12 invocation paths to unified routing through one agent."
+    },
+    {
+      "id": "prd-electron-build-deploy",
+      "title": "Electron Build-Deploy Cycle Automation",
+      "status": "ready",
+      "filePath": "docs/prds/prd-electron-build-deploy.md",
+      "createdAt": "2026-03-07",
+      "stories": 6,
+      "notes": "Adds apps.desktop.buildDeploy schema section so test-flow can automate build → kill → copy → relaunch for Electron projects. Creates dedicated electron-build-deploy skill with explicit command sequence to prevent Builder from skipping deploy steps. macOS only for v1."
     }
   ]
 }

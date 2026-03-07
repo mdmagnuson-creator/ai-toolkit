@@ -265,7 +265,7 @@ After @developer completes a task, run resolved activities in this order:
 | 1 | **Typecheck** | Always (baseline) | Yes, max 3 attempts |
 | 2 | **Lint** | Always (baseline) | Yes, max 3 attempts |
 | 3 | **Unit Tests** | Resolved testers | Yes, max 3 attempts |
-| 3.5 | **Rebuild/Relaunch** | `postChangeWorkflow` steps (or auto-inferred from `apps[]`) | Yes, max 3 attempts |
+| 3.5 | **Rebuild/Relaunch** | `electron-build-deploy` skill (if `buildDeploy` configured), `postChangeWorkflow` steps, or auto-inferred from `apps[]` | Yes, max 3 attempts |
 | 4 | **Critics** | Resolved from patterns | Report findings, @developer fixes |
 | 5 | **E2E / Playwright** | Gated by `testVerifySettings` (see Step 5 box below) | Yes, configurable attempts (see Retry Strategy) |
 | 6 | **Quality** | Resolved quality critics | Report findings |
@@ -314,13 +314,19 @@ Task/Story complete
     │
     ▼
 ┌─────────────────────────────────────────────────────────────────────┐
-│ 3.5. Rebuild/Relaunch (postChangeWorkflow or architecture-aware)    │
+│ 3.5. Rebuild/Relaunch                                               │
 │                                                                     │
-│ If postChangeWorkflow exists → evaluate step conditions first,      │
+│ If apps.desktop.buildDeploy exists in project.json:                 │
+│   → Load `electron-build-deploy` skill                              │
+│   → Skill handles: build → kill → copy → relaunch                  │
+│   → Do NOT proceed to Playwright until skill reports success        │
+│   → On failure: treat as test-flow failure (fix loop, max 3)       │
+│                                                                     │
+│ Else if postChangeWorkflow exists → evaluate step conditions first, │
 │   then execute matching non-Playwright steps                        │
 │   (condition: "files-changed-in:..." checked against changedFiles)  │
 │                                                                     │
-│ If no postChangeWorkflow, check apps[] in project.json:              │
+│ Else check apps[] in project.json:                                   │
 │   • No apps[] or web-only → Skip (HMR handles it)                  │
 │   • Desktop + bundled/hybrid → Build + relaunch Electron            │
 │   • Desktop + remote → Ensure Electron running (no rebuild)         │
@@ -369,8 +375,12 @@ Task/Story complete
 │ Playwright verification runs (gated by testVerifySettings only).      │
 │                                                                     │
 │ Pipeline resolution:                                                 │
-│   1. Check for postChangeWorkflow override                           │
-│   2. Auto-infer from apps[] configuration:                           │
+│   1. If apps.desktop.buildDeploy configured:                         │
+│     → Load `electron-build-deploy` skill (MANDATORY)                │
+│     → Skill executes: build → kill → copy → relaunch               │
+│     → Block Playwright until skill reports success                  │
+│   2. Else check for postChangeWorkflow override                      │
+│   3. Else auto-infer from apps[] configuration:                      │
 │     • Desktop + bundled → build → relaunch → playwright-electron    │
 │     • Desktop + remote → ensure Electron → playwright-electron      │
 │     • Desktop + hybrid → build → relaunch → playwright-electron     │

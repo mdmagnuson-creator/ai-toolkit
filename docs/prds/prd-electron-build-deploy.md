@@ -1,11 +1,12 @@
-# PRD: Electron Build-Deploy Cycle Automation
-
-**ID:** `prd-electron-build-deploy`
-**Status:** draft
-**Created:** 2026-03-07
-**Author:** @toolkit
-
 ---
+id: prd-electron-build-deploy
+title: Electron Build-Deploy Cycle Automation
+status: ready
+priority: high
+createdAt: 2026-03-07T00:00:00Z
+---
+
+# PRD: Electron Build-Deploy Cycle Automation
 
 ## Problem
 
@@ -50,10 +51,7 @@ Add to `project.schema.json` under `apps.desktop`:
 "buildDeploy": {
   "buildCommand": "pnpm build",
   "buildOutputApp": "apps/desktop/dist/mac-universal/Helm.app",
-  "testApp": {
-    "macos": "/Applications/Helm Preview.app"
-  },
-  "deployCommand": "cp -R {buildOutputApp}/. \"{testApp}/\"",
+  "testApp": "/Applications/Helm Preview.app",
   "autoDeployAfterStory": true,
   "triggerPaths": [
     "apps/desktop/electron/**",
@@ -63,14 +61,17 @@ Add to `project.schema.json` under `apps.desktop`:
 }
 ```
 
-### FR-2: test-flow — Build-deploy gate before Playwright (desktop projects)
+The schema declares **what** (paths) and the agent handles **how** (kill → copy → relaunch). No `deployCommand` or custom interpolation — the deploy step for a macOS `.app` bundle is always the same operation, and the agent can construct it from `buildOutputApp` and `testApp`.
+
+### FR-2: test-flow — Build-deploy gate via `electron-build-deploy` skill
 
 When `project.json` contains `apps.desktop.buildDeploy`:
 1. After typecheck/lint/unit-tests pass
 2. Check if any changed files match `buildDeploy.triggerPaths`
-3. If matched, run `buildDeploy.buildCommand`
-4. Deploy output: execute `buildDeploy.deployCommand` (with variable substitution)
-5. Report build-deploy status before proceeding to Playwright
+3. If matched, load the `electron-build-deploy` skill
+4. Skill executes: build → kill running app → copy to test location → relaunch
+5. Block Playwright until the skill reports success
+6. On failure, treat as test-flow failure (fix loop, max 3 attempts)
 
 ### FR-3: test-flow — Skip build-deploy for remote webContent
 
@@ -98,6 +99,7 @@ After all stories complete (ad-hoc or PRD), if `buildDeploy.autoDeployAfterStory
 - `apps.desktop.buildDeploy` added to `project.schema.json` with all fields from FR-1
 - Schema validates correctly with `buildDeploy` present and absent
 - All fields have descriptions and appropriate types
+- `triggerPaths` description includes guidance for remote webContent apps: "If `webContent.source` is remote, only include main process paths (e.g., `apps/desktop/electron/**`) — UI-only changes don't require a rebuild"
 
 ### US-002: Add triggerPaths detection to test-flow
 **As** test-flow, **I want** to check changed files against `buildDeploy.triggerPaths` before deciding whether to rebuild, **so that** unnecessary rebuilds are avoided.
@@ -107,15 +109,18 @@ After all stories complete (ad-hoc or PRD), if `buildDeploy.autoDeployAfterStory
 - If no changed files match trigger paths, build-deploy gate is skipped
 - If any changed file matches, gate proceeds to build
 
-### US-003: Implement build-deploy gate in test-flow Step 3.5
-**As** test-flow, **I want** a build-deploy gate between unit tests and Playwright, **so that** Playwright verifies newly-built code, not stale code.
+### US-003: Create `electron-build-deploy` skill
+**As** test-flow, **I want** a dedicated skill that handles the full build → kill → copy → relaunch sequence, **so that** Playwright verifies newly-built code, not stale code.
 
 **Acceptance Criteria:**
-- After typecheck/lint/unit tests pass, test-flow checks for `buildDeploy` config
-- Runs `buildDeploy.buildCommand` with output reporting
-- Runs `buildDeploy.deployCommand` with variable substitution (`{buildOutputApp}`, `{testApp}`)
+- `skills/electron-build-deploy/SKILL.md` created with explicit, numbered command sequence
+- Skill includes kill → copy → relaunch steps with literal commands (not prose descriptions)
+- Each step marked as CRITICAL/required to prevent Builder from skipping
+- Error handling: build failure, copy failure, and launch failure all stop the pipeline
+- test-flow Step 3.5 updated to load this skill as first priority when `buildDeploy` is configured
 - Build failure = test-flow failure (pipeline stops)
-- Build success = proceed to Playwright
+- Deploy failure = test-flow failure (pipeline stops)
+- Build + deploy success = proceed to Playwright
 
 ### US-004: Add build timeout handling
 **As** test-flow, **I want** a configurable build timeout, **so that** hung builds don't block indefinitely.
@@ -134,31 +139,23 @@ After all stories complete (ad-hoc or PRD), if `buildDeploy.autoDeployAfterStory
 - Shows: build command, build time, deploy target
 - Shows "✅ Test app updated" or "⚠️ Build skipped (no trigger paths matched)"
 
-### US-006: Add webContent remote exemption documentation
-**As** a project maintainer, **I want** clear documentation that remote webContent apps don't need rebuilds for UI-only changes, **so that** trigger paths can be configured correctly.
-
-**Acceptance Criteria:**
-- test-flow documentation explains the remote vs bundled distinction
-- Example trigger path configurations for both modes
-- Clear guidance: "If webContent.source is remote, only include main process paths in triggerPaths"
-
-### US-007: Add configure-electron-build-deploy update template
+### US-006: Add configure-electron-build-deploy update template
 **As** @toolkit, **I want** an update template for existing Electron projects to configure `buildDeploy`, **so that** the migration is discoverable.
 
 **Acceptance Criteria:**
 - Update template created in `data/update-templates/`
-- Registered in `data/update-registry.json` with affinity rule `has-capability:desktop` or equivalent
+- Registered in `data/update-registry.json` with affinity rule `electron-apps`
 - Template walks user through configuring build command, output path, test app path, trigger paths
 
 ---
 
-## Open Questions
+## Resolved Questions
 
-1. **Should `deployCommand` support multi-step commands?** Currently a single string with variable substitution. May need array format for complex deployments (e.g., stop app → deploy → start app).
+1. ~~**Should `deployCommand` support multi-step commands?**~~ **Resolved:** No `deployCommand` in schema. The agent owns the deploy lifecycle (kill → copy → relaunch) using `buildOutputApp` and `testApp` paths. See FR-1.
 
-2. **Should there be a `relaunchCommand`?** After deploying, the user needs to relaunch the app. Should Builder close and reopen it, or just tell the user? (Electron apps can be force-quit and relaunched via `open "/Applications/Helm Preview.app/"`)
+2. ~~**Should there be a `relaunchCommand`?**~~ **Resolved:** Relaunch is part of the agent's deploy responsibility. The agent kills the running app before copy and relaunches after. No user configuration needed.
 
-3. **Cross-platform support:** The current schema has `testApp.macos`. Should we also support `testApp.linux` and `testApp.windows` immediately, or defer?
+3. ~~**Cross-platform support:**~~ **Resolved:** macOS only for v1. `testApp` is a single string path to a `.app` bundle. The `electron-build-deploy` skill uses macOS-specific commands (`killall`, `cp -R`, `open`). Linux and Windows support can be added later by extending `testApp` to a platform map and adding platform-specific deploy logic to the skill.
 
 ---
 
@@ -175,6 +172,7 @@ After all stories complete (ad-hoc or PRD), if `buildDeploy.autoDeployAfterStory
 
 ## References
 
-- Pending update: `~/.config/opencode/pending-updates/2026-03-07-builder-electron-build-deploy-test-cycle.md`
 - Schema: `schemas/project.schema.json` → `apps.desktop`
-- test-flow Step 3.5: `skills/test-flow/SKILL.md` lines 316-330
+- test-flow Step 3.5: `skills/test-flow/SKILL.md`
+- Build-deploy skill: `skills/electron-build-deploy/SKILL.md`
+- Affinity rule: `data/update-affinity-rules.json` → `electron-apps`
