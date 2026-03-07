@@ -793,9 +793,14 @@ If `state: "MERGED"`:
    ' docs/prd-registry.json > docs/prd-registry.json.tmp && mv docs/prd-registry.json.tmp docs/prd-registry.json
    ```
 
-5. **Clear E2E queue:**
+5. **Clear E2E queue and verification state:**
    - Remove `pendingTests.e2e` from `builder-state.json`
    - Clear `deferredTo` flag
+   - **Reset top-level verification state** — set `verificationContract: null`, `verificationResults: null`, `pendingTests: {}` in `builder-state.json`
+
+   > ⛔ **The verification state reset is MANDATORY.** Without it, the next task (ad-hoc or PRD)
+   > inherits stale `verificationContract` and `verificationResults` from this PRD, potentially
+   > causing test-flow to skip real verification.
 
 6. **Run @prd-impact-analyzer:**
    - Check if completed work unblocks other PRDs

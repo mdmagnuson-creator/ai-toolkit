@@ -38,15 +38,15 @@ Write state atomically (read → modify → write) at these key moments:
 | Event | State Changes |
 |-------|---------------|
 | **Session start** | Set `sessionId`, `lastHeartbeat` |
-| **Enter ad-hoc mode** | Set `activeWork.analysisCompleted: false` (MANDATORY — see Analysis Gate section) |
+| **Enter ad-hoc mode** | Set `activeWork.analysisCompleted: false` (MANDATORY — see Analysis Gate section). **Also reset top-level verification state:** `verificationContract: null`, `verificationResults: null`, `pendingTests: {}` |
 | **User approves analysis [G]** | Set `activeWork.analysisCompleted: true` |
 | **Claim PRD** | Set `activeWork` with PRD details (mode: "prd"), clear old work if any |
-| **Start story** | Update `activeWork.currentStoryIndex` and set story status to `in_progress` |
+| **Start story** | Update `activeWork.currentStoryIndex` and set story status to `in_progress`. **Reset per-story:** `verificationContract: null`, `verificationResults: null` |
 | **Resolve story intensity** | Update `activeWork.stories[]` with effective intensity (test-flow handles at runtime) |
 | **Complete story** | Move story from `storiesPending` to `storiesCompleted`, clear `currentStory` |
 | **Add ad-hoc task** | Set `activeWork` with mode: "adhoc" and task details |
 | **Start ad-hoc task** | Update task `status: "in_progress"` |
-| **Complete ad-hoc task** | Update task `status: "completed"`, `completedAt`, `filesChanged` |
+| **Complete ad-hoc task** | Update task `status: "completed"`, `completedAt`, `filesChanged`. **Reset top-level verification state:** `verificationContract: null`, `verificationResults: null`, `pendingTests: {}` |
 | **After every tool call** | Update `currentTask.lastAction`, `contextAnchor`, and `lastHeartbeat` |
 | **Create right-panel todo** | Add item to `uiTodos.items[]`, sync via `todowrite` |
 | **Move todo status** | Update both panel and `uiTodos.items[]` (single source persisted) |
@@ -77,7 +77,28 @@ Write state atomically (read → modify → write) at these key moments:
 2. **Before showing analysis dashboard:** Verify field is `false` (safety check)
 3. **After user responds with [G]:** Set `activeWork.analysisCompleted: true`
 4. **Before ANY @developer delegation:** Read state file and verify `analysisCompleted === true`
-5. **On task completion:** Clear `activeWork` entirely
+5. **On task completion:** Clear `activeWork` entirely AND reset top-level verification state (see below)
+
+### Verification State Reset (MANDATORY on Task Boundaries)
+
+> ⛔ **CRITICAL:** `verificationContract`, `verificationResults`, and `pendingTests` are **top-level** fields in `builder-state.json`, NOT inside `activeWork`.
+> Clearing `activeWork` does NOT clear these fields. They MUST be explicitly reset at every task boundary.
+
+**Why this matters:**
+- test-flow reads `verificationContract` from `builder-state.json` to decide how to verify work
+- If a stale contract with `type: "advisory"` or `type: "skip"` survives from a previous task, test-flow will skip real verification for the new task
+- This is the root cause of verification being skipped across task boundaries
+
+**Reset points (all MANDATORY):**
+
+| Event | Fields to Reset |
+|-------|----------------|
+| Enter ad-hoc mode (Phase 0 init) | `verificationContract: null`, `verificationResults: null`, `pendingTests: {}` |
+| Ad-hoc task completion | `verificationContract: null`, `verificationResults: null`, `pendingTests: {}` |
+| Ad-hoc task abandonment | `verificationContract: null`, `verificationResults: null`, `pendingTests: {}` |
+| Ad-hoc task promotion | `verificationContract: null`, `verificationResults: null`, `pendingTests: {}` |
+| Per-story start (Pipeline Step 1) | `verificationContract: null`, `verificationResults: null` |
+| PRD cleanup (post-merge) | `verificationContract: null`, `verificationResults: null`, `pendingTests: {}` |
 
 **Pre-delegation check (Builder runs this before every delegation):**
 

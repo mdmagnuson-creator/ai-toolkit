@@ -444,6 +444,11 @@ When `taskType` is `ops-only`:
 
 When `builder-state.json` contains a `verificationContract`, use it to guide verification:
 
+> ⛔ **Staleness check (MANDATORY):** Before using the contract, verify it belongs to the current story.
+> Compare `verificationContract.generatedAt` against `activeWork.stories[currentStoryIndex]` start time.
+> If the contract predates the current story (or `verificationContract` is `null`), treat it as **no contract** and fall through to the default activity resolution (Section 2).
+> This prevents stale contracts from previous tasks causing verification skips.
+
 | Contract Criterion | Test Activity | Execution |
 |--------------------|---------------|-----------|
 | `activity: "typecheck"` | Baseline typecheck | `npm run typecheck` |

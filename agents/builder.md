@@ -1174,6 +1174,12 @@ for each story in activeWork.stories where status == "pending":
 
 Update `activeWork.stories[currentStoryIndex].status` to `"in_progress"` in `builder-state.json`.
 
+**Reset per-story verification state:** Before processing each story, clear stale verification data from the previous story:
+- Set `verificationContract: null` in `builder-state.json`
+- Set `verificationResults: null` in `builder-state.json`
+
+> This ensures test-flow evaluates each story with a fresh contract, not a stale one from the previous story.
+
 **Step 2: Delegate implementation → @developer**
 
 Delegate the story to `@developer` with full story context (story ID, description, acceptance criteria, project context block). See `builder-delegation` skill for context block format.

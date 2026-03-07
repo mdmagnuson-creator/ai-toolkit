@@ -182,15 +182,24 @@ Task Specs follow the **same lifecycle as PRDs** but in a parallel folder struct
     "resolvedActivities": [],
     "implementationDecisions": [],
     "enteredAt": "2026-03-03T10:30:00Z"
-  }
+  },
+  "verificationContract": null,
+  "verificationResults": null,
+  "pendingTests": {}
 }
 ```
+
+> ⛔ **CRITICAL: The top-level verification fields (`verificationContract`, `verificationResults`, `pendingTests`) MUST be reset here.**
+> These fields live OUTSIDE `activeWork` and are NOT cleared when `activeWork` is cleared.
+> If stale values survive from a previous task, test-flow may read an old `verificationContract`
+> (e.g., `type: "advisory"` or `type: "skip"`) and skip real verification for the new task.
 
 **Why this matters:**
 - The `analysisCompleted: false` flag serves as a technical checkpoint
 - Even if behavioral guardrails are "forgotten" after context compaction, this flag persists
 - The flag is checked before EVERY @developer delegation (see builder.md)
 - The flag is ONLY set to `true` after user responds with `[G] Go ahead`
+- The verification state reset prevents stale contracts from causing verification skips
 
 **Compaction resilience:**
 - On session resume after compaction, Builder reads this flag
@@ -1736,6 +1745,7 @@ Add visual loading feedback to SubmitButton component:
 ```
 
 4. Clear `activeWork` from `builder-state.json`
+5. **Reset top-level verification state** — set `verificationContract: null`, `verificationResults: null`, `pendingTests: {}`
 
 ---
 
@@ -1768,7 +1778,8 @@ Revert uncommitted changes?
 2. Move Task Spec to `docs/tasks/abandoned/`
 3. Update registry with `status: abandoned`, `abandonedAt`, `abandonReason`
 4. Clear `activeWork` from `builder-state.json`
-5. Notify: "Task abandoned. You can resume later with `resume task-2026-03-01-add-spinner`"
+5. **Reset top-level verification state** — set `verificationContract: null`, `verificationResults: null`, `pendingTests: {}`
+6. Notify: "Task abandoned. You can resume later with `resume task-2026-03-01-add-spinner`"
 
 ### Resuming Abandoned Task:
 
@@ -1867,7 +1878,8 @@ Completed work (2 stories):
 
 1. Update Task Spec registry: `status: promoted`, `promotedTo: null` (set when PRD created)
 2. Clear `activeWork` from `builder-state.json`
-3. Notify: "Promotion request created. Run @planner to continue."
+3. **Reset top-level verification state** — set `verificationContract: null`, `verificationResults: null`, `pendingTests: {}`
+4. Notify: "Promotion request created. Run @planner to continue."
 
 ---
 
@@ -1956,6 +1968,11 @@ Task-Spec: task-2026-03-01-add-spinner"
 1. Clear test checkpoints
 2. Archive Task Spec to `docs/tasks/completed/`
 3. Clear `activeWork` from `builder-state.json`
+4. **Reset top-level verification state** — set `verificationContract: null`, `verificationResults: null`, `pendingTests: {}` in `builder-state.json`
+
+> ⛔ **Step 4 is MANDATORY.** These fields live outside `activeWork` and are NOT cleared by Step 3.
+> Without this reset, the next ad-hoc task inherits stale verification state and test-flow may
+> skip real verification (e.g., stale `verificationContract.type: "advisory"` causes full skip).
 
 ---
 
