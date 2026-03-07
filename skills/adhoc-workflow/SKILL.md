@@ -1701,7 +1701,6 @@ Add visual loading feedback to SubmitButton component:
 ═══════════════════════════════════════════════════════════════════════
 
 [C] Commit and ship
-[E] Write additional E2E tests
 
 > _
 ═══════════════════════════════════════════════════════════════════════
@@ -2070,7 +2069,7 @@ User: N
 Files changed: 2
 Tests added: 3
 
-[C] Commit and ship | [E] Write E2E tests
+[C] Commit and ship
 
 > _
 

@@ -505,13 +505,6 @@
             "threshold": { "type": "integer", "description": "Minimum coverage percentage" }
           }
         },
-        "rigorProfile": {
-          "type": "string",
-          "enum": ["rapid", "standard", "strict", "compliance"],
-          "default": "standard",
-          "deprecated": true,
-          "description": "DEPRECATED: Ignored. Test activities are now determined automatically based on file changes. See alwaysInclude/neverSkip for escape hatches."
-        },
         "alwaysInclude": {
           "type": "array",
           "items": { "type": "string" },
@@ -521,23 +514,6 @@
           "type": "array",
           "items": { "type": "string" },
           "description": "Activities that cannot be bypassed when they fail (e.g., [\"typecheck\", \"ui-tester-playwright\"])"
-        },
-        "storyAssessment": {
-          "type": "object",
-          "description": "How per-story test intensity is determined during PRD execution",
-          "properties": {
-            "source": {
-              "type": "string",
-              "enum": ["planner", "builder", "hybrid"],
-              "default": "hybrid",
-              "description": "planner = use PRD-assigned intensity, builder = runtime assessment only, hybrid = planner baseline + runtime escalation"
-            },
-            "allowDowngrade": {
-              "type": "boolean",
-              "default": false,
-              "description": "Whether Builder may reduce planner-assigned story intensity. Recommended false."
-            }
-          }
         },
         "autoGenerate": {
           "type": "boolean",
@@ -551,32 +527,37 @@
         },
         "testVerifySettings": {
           "type": "object",
-          "description": "Controls which automated Playwright invocation points are enabled. All default to true. Set individual settings to false to skip specific UI test/verification steps. Does NOT gate user-invoked workflows (@qa, @ui-test-full-app-auditor) or test file maintenance (developer.md/hammer.md editing existing tests).",
+          "description": "Controls which automated Playwright invocation points are enabled. All default to true. When true, Playwright runs automatically — no user prompt. When false, that invocation point is skipped silently. Does NOT gate user-invoked workflows (@qa, @ui-test-full-app-auditor) or test file maintenance.",
           "properties": {
             "adHocUIVerify_Analysis": {
               "type": "boolean",
               "default": true,
-              "description": "Ad-hoc mode: run Playwright analysis probe after code changes (adhoc-workflow Step 0.1b)"
+              "description": "Ad-hoc mode: automatically run Playwright analysis probe after code changes"
             },
             "adHocUIVerify_StoryTest": {
               "type": "boolean",
               "default": true,
-              "description": "Ad-hoc mode: write/run Playwright tests for completed tasks (test-flow Step 5 ad-hoc)"
+              "description": "Ad-hoc mode: automatically write/run Playwright tests for completed tasks"
+            },
+            "adHocUIVerify_CompletionTest": {
+              "type": "boolean",
+              "default": true,
+              "description": "Ad-hoc mode: automatically run holistic Playwright tests covering the full batch of changes at task spec completion"
             },
             "prdUIVerify_Analysis": {
               "type": "boolean",
               "default": true,
-              "description": "PRD mode: run per-story Playwright verification after implementation (test-flow Step 3 PRD)"
+              "description": "PRD mode: automatically run per-story Playwright verification after implementation"
             },
             "prdUIVerify_StoryTest": {
               "type": "boolean",
               "default": true,
-              "description": "PRD mode: write/run per-story Playwright tests (test-flow Step 5 PRD, tester.md Step 7)"
+              "description": "PRD mode: automatically write/run per-story Playwright tests"
             },
             "prdUIVerify_PRDCompletionTest": {
               "type": "boolean",
               "default": true,
-              "description": "PRD mode: generate deferred UI tests at PRD completion (prd-workflow Ship Phase 'G' option)"
+              "description": "PRD mode: automatically run holistic Playwright tests at PRD completion"
             }
           }
         }

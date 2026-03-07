@@ -87,7 +87,6 @@ Task complete
 │                                                                     │
 │ For each changed file:                                              │
 │   • Match against filePatterns → collect activities                 │
-│   • Check e2eScope for dependent testing                           │
 │                                                                     │
 │ For diff content:                                                   │
 │   • Match against codePatterns → collect additional activities      │
@@ -132,9 +131,6 @@ function resolveActivities(changedFiles, diffContent, project):
     baseline: ["typecheck", "lint"],
     unit: Set(),
     critics: Set(),
-    e2e: "immediate",        # Always resolved — gated by testVerifySettings at execution time
-    e2eAreas: [],
-    dependentSmoke: [],
     quality: Set(),
     reasoning: []
   }
@@ -152,16 +148,6 @@ function resolveActivities(changedFiles, diffContent, project):
         else if rule.unit is string:
           activities.unit.add(rule.unit)
 
-        # Handle E2E areas
-        if rule.e2e === "skip":
-          continue  # This file doesn't need E2E
-
-        activities.e2eAreas.add(file)
-
-        # Dependent smoke testing
-        if rule.e2eScope === "dependents":
-          activities.dependentSmoke.add(file)
-
         # Quality critics
         if rule.quality === true:
           activities.quality.addAll(["aesthetic-critic"])
@@ -172,8 +158,6 @@ function resolveActivities(changedFiles, diffContent, project):
   for pattern, rule in rules.codePatterns:
     if regexMatch(diffContent, pattern):
       activities.critics.addAll(rule.critics or [])
-      if rule.e2e === "immediate":
-        activities.e2eAreas.add("code-pattern-match")
       activities.reasoning.push("Code pattern: " + pattern)
 
   # Cross-cutting rules
@@ -423,14 +407,28 @@ Task/Story complete
 
 ### Retry Strategy
 
-Playwright failures use different retry limits depending on the mode:
+Playwright failures use a hard cap of **20 attempts per issue**. Both PRD mode and ad-hoc mode behave identically:
 
 | Mode | Max Attempts | On Exhaustion |
 |------|-------------|---------------|
-| **PRD mode** | 5 attempts with fix attempts between each | Skip and log — Builder continues to next story. Failure logged to `activeWork.stories[n].testFlowResult: "fail"`. |
-| **Ad-hoc mode** | 3 attempts with fix attempts between each | STOP and report to user — show verification failed dashboard. |
+| **PRD mode** | 20 attempts with fix attempts between each | STOP and report to user (see below) |
+| **Ad-hoc mode** | 20 attempts with fix attempts between each | STOP and report to user (see below) |
 
-Each attempt is logged with what was tried. PRD mode skips include full failure detail. See `test-verification-loop` skill for the detailed fix loop algorithm.
+Each attempt is logged with what was tried. On exhaustion (20 failed attempts for the same issue), STOP and report:
+
+```
+⛔ PLAYWRIGHT FIX LOOP EXHAUSTED
+
+Attempted 20 fixes for the following issue without success:
+  [issue description]
+
+Files affected: [list]
+Last error: [error summary]
+```
+
+No `[S] Save as-is`, no `[D] Discard`, no `[F] Try more` — just stop and inform the user.
+
+See `test-verification-loop` skill for the detailed fix loop algorithm.
 
 ### Ops-Only Task Verification
 
@@ -542,7 +540,6 @@ Quality checks:
 Changed files: [count] ([file list])
 
 Options:
-  [E] Write E2E tests (Playwright automated UI testing)
   [C] Commit this change
   [N] Next task (add more work)
 
@@ -554,18 +551,19 @@ Options:
 
 | Choice | Action |
 |--------|--------|
-| **E** | Write AND run E2E tests (atomic operation — see below) |
 | **C** | Commit the changes |
 | **N** | Return to task prompt |
 
-### E2E Sub-flow (When User Chooses "E")
+### Automatic E2E Execution
 
 > ⛔ **E2E write+run is ONE atomic operation. Writing a test without running it is never a valid stopping point.**
 
-> **`testVerifySettings` gate:** Before writing E2E tests, check the applicable setting:
+> **`testVerifySettings` gate:** E2E runs automatically when the applicable setting is `true`:
 > - **Ad-hoc mode:** `testVerifySettings.adHocUIVerify_StoryTest` (default: `true` if absent)
 > - **PRD mode:** `testVerifySettings.prdUIVerify_StoryTest` (default: `true` if absent)
 > If `false` → skip with: `⏭️ Skipping UI test writing: testVerifySettings.{settingName} is false`
+
+E2E execution is automatic — no `[E]` prompt, no user choice. When `testVerifySettings` says to run:
 
 1. Delegate to @ui-tester-playwright to write E2E tests
 2. **Immediately after writing**, run the tests — no user prompt between write and run
@@ -573,19 +571,17 @@ Options:
    ```
    ✅ E2E tests written and passing:
       • e2e/[test-name].spec.ts — [N] tests, all passing
-   
-   [C] Commit all changes (including E2E tests)
-   [N] Next task
    ```
-4. If tests fail: enter fix loop (delegate fix to @developer, re-run, max 3 attempts)
-5. If tests still fail after fix loop:
+4. If tests fail: enter fix loop (delegate fix to @developer, re-run, max 20 attempts per issue)
+5. If tests still fail after 20 attempts:
    ```
-   ⚠️ E2E tests written but failing after 3 fix attempts:
-      • e2e/[test-name].spec.ts — [failures summary]
-   
-   [F] Try more fixes
-   [S] Save tests as-is (commit with known failures)
-   [D] Discard tests
+   ⛔ PLAYWRIGHT FIX LOOP EXHAUSTED
+
+   Attempted 20 fixes for the following issue without success:
+     [issue description]
+
+   Files affected: [list]
+   Last error: [error summary]
    ```
 
 > **Why atomic?** A test that hasn't been run is unverified — it could have selector mismatches, timing issues, or assertion errors. The user should never see "test written, want me to run it?" — that's two steps for what is logically one operation.
@@ -608,7 +604,6 @@ Quality checks:
 ⚠️  Active PRD: [prd-name] ([current-story])
 
 Options:
-  [E] Write E2E tests (can defer to PRD completion)
   [C] Commit this change
   [N] Next task (add more work)
   [R] Return to PRD work
@@ -731,9 +726,4 @@ Builder: "Removing @security-critic from this run..."
 }
 ```
 
-### Legacy Rigor Profiles (DEPRECATED)
 
-> ⚠️ **`rigorProfile` is deprecated and ignored.**
->
-> If you have `testing.rigorProfile` in `project.json`, it will be ignored.
-> Test activities are now determined automatically based on what changed.

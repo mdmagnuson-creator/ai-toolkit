@@ -39,6 +39,16 @@
       "interactive": true,
       "createdAt": "2026-03-05",
       "templatePath": "templates/updates/architecture-aware-verification.md"
+    },
+    {
+      "id": "2026-03-07-configure-test-verify-settings",
+      "description": "Configure testVerifySettings — the 6 Playwright gate settings that control automated UI testing",
+      "affinityRule": "all-projects",
+      "priority": "high",
+      "updateType": "schema",
+      "interactive": true,
+      "createdAt": "2026-03-07",
+      "templatePath": "templates/updates/configure-test-verify-settings.md"
     }
   ]
 }

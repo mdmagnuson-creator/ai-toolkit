@@ -34,7 +34,6 @@ If `docs/project.json` exists, extract key information for criteria generation:
 | `name` | Set `project` field in JSON |
 | `stack.languages` | Determine language-specific criteria |
 | `styling.darkMode.enabled` | Add dark mode criteria for UI stories |
-| `testing.e2e.framework` | Know if E2E testing is available |
 | `linting.enabled` | Add lint criteria |
 | `capabilities.supportDocs` | Enable documentation flag detection |
 | `capabilities.ai` | Enable tools flag detection |
@@ -82,8 +81,6 @@ If no `project.json` exists, note this and use defaults:
       "supportArticleRequired": false,
       "documentationType": null,
       "relatedArticleSlugs": [],
-      "e2eRequired": false,
-      "e2eScope": null,
       "marketingRequired": false,
       "marketingType": null,
       "relatedMarketingPages": [],
@@ -197,7 +194,6 @@ Before presenting the PRD for approval, **automatically detect** the flag values
 | `capabilities.supportDocs: true` | Documentation detection |
 | `capabilities.ai: true` | AI tools detection |
 | `capabilities.marketing: true` | Marketing detection |
-| `testing.e2e.framework` exists | E2E detection |
 | `planning.considerations` has entries | Consideration detection |
 
 **If a capability is disabled, skip that detection and set flags to false.**
@@ -223,20 +219,6 @@ For each story, analyze the acceptance criteria and title to auto-detect flags:
 **relatedArticleSlugs:**
 - Derive from feature name (e.g., "time slots" → `["time-slots"]`)
 - Match against existing slugs found in Step 1
-
-#### E2E Detection (if `testing.e2e.framework` exists)
-
-| Pattern | Detection |
-|---------|-----------|
-| Acceptance criteria contains "click", "button", "modal", "form" | `e2eRequired: true` |
-| Acceptance criteria contains "verify in browser" | `e2eRequired: true` |
-| Acceptance criteria contains "page", "navigation", "route" | `e2eRequired: true` |
-| Story is database/migration only | `e2eRequired: false` |
-| Story is API-only with no UI | `e2eRequired: false` |
-
-**e2eScope:**
-- Summarize the user flow from acceptance criteria
-- e.g., "user can create event with time slot selection"
 
 #### Marketing Detection (if `capabilities.marketing: true`)
 
@@ -265,19 +247,6 @@ For each story, analyze the acceptance criteria and title to auto-detect flags:
 **relatedToolNames:**
 - Derive from feature (e.g., "list events" → `["list_events"]`)
 - Match against existing tools found in Step 1
-
-#### Story Test Intensity Assessment
-
-Assign a baseline `testIntensity` for every story:
-
-| Story Traits | testIntensity |
-|---------|-----------|
-| Small copy/UI tweak, isolated refactor, low blast radius | `low` |
-| Typical feature/UI flow, standard CRUD, limited integrations | `medium` |
-| Cross-cutting behavior, auth/permissions, complex state transitions | `high` |
-| Payments, security-sensitive data, compliance-critical flows, migration with irreversible impact | `critical` |
-
-Add optional `testIntensityReason` (1 short sentence) when the choice is not obvious.
 
 #### Project Considerations Detection (if `planning.considerations` exists)
 
@@ -318,17 +287,17 @@ After auto-detecting flags, present an interactive review table for user confirm
 ════════════════════════════════════════════════════════════════════════
 Project: Example Scheduler
 Stack: TypeScript / Next.js 16 / Supabase
-Features: ✅ Docs  ✅ E2E  ✅ Marketing  ✅ AI Tools
+Features: ✅ Docs  ✅ Marketing  ✅ AI Tools
 
-┌─────────┬──────────────────────────────────────┬──────┬──────┬──────┬───────┬───────────┬────────────────┐
-│ Story   │ Title                                │ Docs │ E2E  │ Mktg │ Tools │ Intensity │ Considerations │
-├─────────┼──────────────────────────────────────┼──────┼──────┼──────┼───────┼───────────┼────────────────┤
-│ US-001  │ Add time_slots table                 │  -   │  -   │  -   │   -   │   low     │       -        │
-│ US-002  │ Seed default 'All Day' slot          │  -   │  -   │  -   │   -   │   low     │       -        │
-│ US-003  │ Time slot selector in event form     │  ✓   │  ✓   │  -   │   -   │  medium   │  support-docs  │
-│ US-004  │ Render time slots on calendar        │  ✓   │  ✓   │  ⚠   │   -   │  medium   │  support-docs  │
-│ US-005  │ Manage time slots in settings        │  ✓   │  ✓   │  -   │  ⚠   │    ⚠      │ permissions ⚠  │
-└─────────┴──────────────────────────────────────┴──────┴──────┴──────┴───────┴───────────┴────────────────┘
+┌─────────┬──────────────────────────────────────┬──────┬──────┬───────┬────────────────┐
+│ Story   │ Title                                │ Docs │ Mktg │ Tools │ Considerations │
+├─────────┼──────────────────────────────────────┼──────┼──────┼───────┼────────────────┤
+│ US-001  │ Add time_slots table                 │  -   │  -   │   -   │       -        │
+│ US-002  │ Seed default 'All Day' slot          │  -   │  -   │   -   │       -        │
+│ US-003  │ Time slot selector in event form     │  ✓   │  -   │   -   │  support-docs  │
+│ US-004  │ Render time slots on calendar        │  ✓   │  ⚠   │   -   │  support-docs  │
+│ US-005  │ Manage time slots in settings        │  ✓   │  -   │  ⚠   │ permissions ⚠  │
+└─────────┴──────────────────────────────────────┴──────┴──────┴───────┴────────────────┘
 
 Legend: ✓ = yes, - = no, ⚠ = uncertain (requires confirmation)
 
@@ -357,12 +326,7 @@ If any flags are marked `⚠` (uncertain), **block until user confirms**:
    [Y] Yes, create/update AI tools  [N] No tools needed
    > _
 
-3. US-005 (Manage time slots in settings) → Test Intensity
-   Reason: Could impact authentication/session boundaries
-   [L] low  [M] medium  [H] high  [C] critical
-   > _
-
-4. US-005 (Manage time slots in settings) → Considerations
+3. US-005 (Manage time slots in settings) → Considerations
    Reason: Might need `permissions` consideration based on admin access scope
    [Y] Include `permissions`  [N] Do not include
    > _
@@ -387,10 +351,8 @@ All flags confirmed. Final PRD summary:
     • Dark mode verification (UI stories)
   
   Documentation updates: 3 stories
-  E2E tests needed: 3 stories  
   Marketing updates: 1 story
   AI tools updates: 1 story
-  Story test intensity mix: 2 low, 2 medium, 1 high
   Consideration mappings: permissions (1), support-docs (3)
 
 [A] Approve and write prd.json
@@ -431,32 +393,6 @@ Each user story includes AI tools tracking fields:
 - `Tools: No` → `toolsRequired: false, toolsType: null, relatedToolNames: []`
 - `Tools: Yes (new: tool_name)` → `toolsRequired: true, toolsType: "new", relatedToolNames: ["tool_name"]`
 - `Tools: Yes (update: tool_name)` → `toolsRequired: true, toolsType: "update", relatedToolNames: ["tool_name"]`
-
-### E2E Testing Fields
-
-Each user story includes E2E testing tracking fields:
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `e2eRequired` | boolean | `true` if this story needs Playwright E2E tests |
-| `e2eScope` | string \| null | Description of what flows to test (e.g., `"event creation and editing"`) |
-
-**Determine these values from the PRD's E2E field or infer from UI changes:**
-- Backend-only stories (migrations, API logic) → `e2eRequired: false, e2eScope: null`
-- UI stories with user interactions → `e2eRequired: true, e2eScope: "description of user flow"`
-- `E2E: No` → `e2eRequired: false, e2eScope: null`
-- `E2E: Yes (scope)` → `e2eRequired: true, e2eScope: "scope"`
-
-### Story Test Intensity Fields
-
-Each user story includes testing intensity fields:
-
-| Field | Type | Description |
-|-------|------|-------------|
-| `testIntensity` | string | Baseline per-story test intensity: `low`, `medium`, `high`, `critical` |
-| `testIntensityReason` | string \| null | Optional short rationale when assignment is ambiguous |
-
-Use this as the planner baseline. Builder may increase intensity at runtime based on actual changes.
 
 ### Marketing Fields
 
@@ -604,7 +540,6 @@ Each criterion must be something Developer can CHECK, not something vague.
 5. **branchName**: Use format `feature/[feature-name-kebab-case]` (no ticket prefix)
 6. **project**: Use `name` from `project.json` if available, otherwise folder name
 7. **Acceptance criteria**: Include stack-specific criteria from `project.json`
-8. **Per-story test planning**: Set `testIntensity` for every story
 
 ---
 
@@ -656,8 +591,6 @@ Before writing prd.json, verify:
   - [ ] UI stories with dark mode: "Works in both light and dark mode"
   - [ ] UI stories: "Verify in browser"
 - [ ] User-facing stories have `supportArticleRequired: true` (if `capabilities.supportDocs`)
-- [ ] UI stories with interactions have `e2eRequired: true` (if `testing.e2e` exists)
-- [ ] Every story has `testIntensity` (`low|medium|high|critical`)
 - [ ] Promotable features have `marketingRequired: true` (if `capabilities.marketing`)
 - [ ] Chat-accessible stories have `toolsRequired: true` (if `capabilities.ai`)
 - [ ] `planning.considerations` mapped to relevant stories (when present)

@@ -77,14 +77,6 @@ VECTORIZATION
   [Or if disabled for session:]
   ⚫ Disabled for this session
 
-[If awaiting_e2e PRDs exist:]
-⚠️  AWAITING E2E TESTS
-───────────────────────────────────────────────────────────────────────
-  prd-recurring-events (PR merged, E2E tests pending)
-    • apps/web/e2e/recurrence-ui.spec.ts
-   
-    [E] Run E2E tests now    [S] Skip and mark completed
-
 ───────────────────────────────────────────────────────────────────────
 
 READY PRDs
@@ -101,7 +93,7 @@ COMPLETED PRDs (recent)
 ⚠️ 2 pending project updates — type "U" to review
 
 ═══════════════════════════════════════════════════════════════════════
-[E] Run E2E tests    [P] PRD Mode    [A] Ad-hoc Mode    [S] Status
+[P] PRD Mode    [A] Ad-hoc Mode    [S] Status
 
 > _
 ═══════════════════════════════════════════════════════════════════════
@@ -110,7 +102,6 @@ COMPLETED PRDs (recent)
 ## Dashboard Sections
 
 - **Vectorization** — Shows semantic search status: enabled/disabled, chunk count, index age
-- **Awaiting E2E tests** — PRDs with `status: "awaiting_e2e"` from `prd-registry.json`. Shows prominently at top with warning icon. These PRDs are merged but E2E tests haven't been run yet.
 - **Ready PRDs** — PRDs with `status: "ready"` from `prd-registry.json`
 - **Completed PRDs** — Recent PRDs with `status: "completed"` (for context)
 - **Pending updates** — If `project-updates/[project-id]/` has files

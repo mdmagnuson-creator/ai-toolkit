@@ -93,15 +93,15 @@ After each story completes:
 
 ## PRD Lifecycle States
 
-PRDs go through 6 states:
+PRDs go through 5 states:
 
 ```
-┌───────┐     ┌───────┐     ┌─────────────┐     ┌─────────┐     ┌──────────────┐     ┌───────────┐
-│ draft │ ──▶ │ ready │ ──▶ │ in_progress │ ──▶ │ pr_open │ ──▶ │ awaiting_e2e │ ──▶ │ completed │
-└───────┘     └───────┘     └─────────────┘     └─────────┘     └──────────────┘     └───────────┘
-    │                              │                                   │
-    │         (skip for           │              (skip if no          │
-    └─────────small PRDs)─────────┘              deferred E2E)────────┘
+┌───────┐     ┌───────┐     ┌─────────────┐     ┌─────────┐     ┌───────────┐
+│ draft │ ──▶ │ ready │ ──▶ │ in_progress │ ──▶ │ pr_open │ ──▶ │ completed │
+└───────┘     └───────┘     └─────────────┘     └─────────┘     └───────────┘
+    │                              │
+    │         (skip for           │
+    └─────────small PRDs)─────────┘
 ```
 
 | State | Meaning |
@@ -110,15 +110,15 @@ PRDs go through 6 states:
 | `ready` | PRD approved, waiting to be picked up |
 | `in_progress` | Implementation actively happening |
 | `pr_open` | PR created, awaiting review/merge |
-| `awaiting_e2e` | PR merged, but deferred E2E tests not yet run |
-| `completed` | PR merged, E2E tests passed (or explicitly skipped), work done |
+| `completed` | PR merged, Playwright tests passed (or skipped via testVerifySettings), work done |
 
 ### State Migration
 
 If you encounter PRDs with legacy states, migrate them automatically:
 - `committed` → `in_progress` (work not yet pushed)
 - `pushed` → `in_progress` (no PR yet)
-- `merged` → `awaiting_e2e` (must verify E2E tests before completing)
+- `merged` → `completed` (legacy state)
+- `awaiting_e2e` → `completed` (legacy state — E2E deferral removed)
 
 ## Git Execution Mode (PRD)
 
@@ -348,29 +348,17 @@ For each story in priority order:
 
 2. **Handle story-specific flags:**
    - `supportArticleRequired: true` → Run `support-article` step
-   - `e2eRequired: true` → Run `e2e-write` step
    - `toolsRequired: true` → Run `tools` step (if `capabilities.ai`)
    - `marketingRequired: true` → Run `marketing` step (if `capabilities.marketing`)
 
-3. **Resolve story test intensity (planner + runtime):**
-   - Read planner baseline from story field: `testIntensity` (`low|medium|high|critical`)
-   - Read project policy: `project.json` → `testing.storyAssessment.source` (`planner|builder|hybrid`, default `hybrid`)
-   - Compute runtime risk signals (actual changed files, cross-cutting impact, auth/payment/security touches, repeated failures)
-   - Determine effective intensity:
-     - `planner`: use planner baseline
-     - `builder`: use runtime assessment
-     - `hybrid`: use max(planner baseline, runtime assessment)
-   - Unless `testing.storyAssessment.allowDowngrade: true`, Builder must only escalate (never downgrade)
-   - Persist to `builder-state.json` under `activeWork.stories[]` (effective intensity stored per-story)
+3. **Update heartbeat** periodically in session lock
 
-4. **Update heartbeat** periodically in session lock
-
-5. **Update story todo state in both stores (BEFORE commit):**
+4. **Update story todo state in both stores (BEFORE commit):**
    - Before implementation: mark current story `in_progress` via `todowrite` and `uiTodos.items`
    - After implementation + required checks: mark story `completed` in both places
    - **⚠️ This must happen BEFORE Step 2.5 (commit)** to ensure state is included in the commit
 
-6. **Handle developer failures:**
+5. **Handle developer failures:**
    - If developer fails more than once on a story, analyze the PRD
    - Update `docs/prd.json` with clarifications if needed
    - If developer struggles with cleanup, run @wall-e
@@ -731,64 +719,27 @@ For each:
 
 If `state: "MERGED"`:
 
-1. **Check for pending E2E tests:**
+1. **Automatic PRD Completion Playwright Execution:**
    
-   Read `builder-state.json` → `pendingTests.e2e`:
-   - If `status: "pending"` with `deferredTo: "prd-completion"` → E2E tests still needed
-   - If `status: "passed"` → E2E tests complete, proceed to step 3
-   - If no `pendingTests.e2e` exists → **Check PRD for E2E requirements** (see below)
+   Check `testVerifySettings.prdUIVerify_PRDCompletionTest` (default: `true` if absent):
+   
+   - If `true` → Run holistic Playwright tests automatically covering the full PRD's changes. Fix loop continues until pass (max 20 attempts per issue). On exhaustion, STOP and report:
+     ```
+     ⛔ PLAYWRIGHT FIX LOOP EXHAUSTED
+     
+     Attempted 20 fixes for the following issue without success:
+       [issue description]
+     
+     Files affected: [list]
+     Last error: [error summary]
+     ```
+   - If `false` → Skip silently with: `⏭️ Skipping PRD completion Playwright tests: testVerifySettings.prdUIVerify_PRDCompletionTest is false`
+   
+   After Playwright passes (or is skipped), proceed automatically to step 2.
 
-   **If no E2E tracking exists:**
-   
-   Read the PRD JSON and check if any story has `e2eRequired: true`:
-   - If YES → E2E tests were expected but not tracked. Treat as `awaiting_e2e` and prompt user.
-   - If NO stories required E2E → E2E tests not needed, proceed to step 3
+2. **Generate human testing script** (see template below)
 
-2. **If E2E tests are still pending (or expected but untracked):**
-   
-   **Update registry to `awaiting_e2e`** (do NOT archive yet):
-   - Set `status: "awaiting_e2e"`
-   - Set `mergedAt: <now>`
-   - Store `pendingE2eTests: [list of test files]`
-   
-   **Report and show E2E prompt:**
-   ```
-   ═══════════════════════════════════════════════════════════════════════
-                        PR MERGED — E2E TESTS PENDING
-   ═══════════════════════════════════════════════════════════════════════
-   
-   ✅ PR merged: [prd-name]
-   
-   ⚠️  Deferred E2E tests have not been run yet:
-      • e2e/feature-name.spec.ts
-   
-   [If E2E tests were expected but untracked:]
-   ⚠️  This PRD has stories with e2eRequired: true, but no E2E tests
-      were tracked. E2E tests may need to be generated first.
-   
-   The PRD will remain in `awaiting_e2e` status until E2E tests pass.
-   
-   Options:
-      [E] Run E2E tests now
-      [G] Generate E2E tests first, then run (if untracked)
-      [S] Skip E2E tests (mark completed anyway)
-      [L] Leave as awaiting_e2e (run later)
-   
-   > _
-   ═══════════════════════════════════════════════════════════════════════
-   ```
-   
-    **Handle response:**
-    - "E" → Check `testVerifySettings.prdUIVerify_PRDCompletionTest` (default: `true` if absent). If `false` → skip with: `⏭️ Skipping E2E tests: testVerifySettings.prdUIVerify_PRDCompletionTest is false`. If `true` → Run E2E tests (see Deferred E2E Test Flow in builder.md)
-    - "G" → Check `testVerifySettings.prdUIVerify_PRDCompletionTest` (default: `true` if absent). If `false` → skip with: `⏭️ Skipping deferred E2E generation: testVerifySettings.prdUIVerify_PRDCompletionTest is false`. If `true` → Run @ui-tester-playwright to generate E2E tests for the PRD's stories, then run them
-   - "S" → Log skip reason, proceed to step 3 (archive and complete)
-   - "L" → Stop here, user will run `[E]` from dashboard later
-   
-   **Do NOT proceed to step 3 unless user chooses "E" (and tests pass), "G" (and tests pass), or "S".**
-
-3. **Generate human testing script** (see template below)
-
-4. **Archive the PRD (with rolling window):**
+3. **Archive the PRD (with rolling window):**
    - Create folder: `docs/completed/[prd-id]/`
    - Move PRD JSON and MD files to archive folder
    - Move the generated `human-testing-script.md` to archive folder

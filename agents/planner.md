@@ -811,14 +811,14 @@ When the user selects "0 - Add New Project", use a quick intake flow and default
 
 When converting PRDs to JSON, analyze each story:
 
-| Story Type | supportArticleRequired | toolsRequired | testIntensity |
-|------------|------------------------|---------------|---------------|
-| UI changes users see | ✅ Yes | Maybe | medium |
-| New user workflows | ✅ Yes | Maybe | medium/high |
-| Chat-accessible data/actions | Maybe | ✅ Yes | high |
-| Backend-only/infrastructure | ❌ No | ❌ No | low/medium |
-| Payments/auth/security/compliance | Maybe | Maybe | critical |
-| Admin/developer tooling | ❌ No | ❌ No | low |
+| Story Type | supportArticleRequired | toolsRequired |
+|------------|------------------------|---------------|
+| UI changes users see | ✅ Yes | Maybe |
+| New user workflows | ✅ Yes | Maybe |
+| Chat-accessible data/actions | Maybe | ✅ Yes |
+| Backend-only/infrastructure | ❌ No | ❌ No |
+| Payments/auth/security/compliance | Maybe | Maybe |
+| Admin/developer tooling | ❌ No | ❌ No |
 
 Also read `docs/project.json` `planning.considerations` (if present) and carry relevant consideration IDs into PRD scope and stories.
 
@@ -829,11 +829,11 @@ Example consideration IDs: `permissions`, `support-docs`, `ai-tools`, `complianc
 ```
 ## Flag Review
 
-| Story | Support Article? | Tools? | Test Intensity | Reasoning |
-|-------|------------------|--------|----------------|-----------|
-| US-001: Database schema | ❌ No | ❌ No | medium | Backend infrastructure |
-| US-002: User settings page | ✅ Yes | ❌ No | medium | User-facing UI |
-| US-003: List events API | ⚠️ ? | ⚠️ ? | ⚠️ ? | Could be chat-accessible - confirm? |
+| Story | Support Article? | Tools? | Reasoning |
+|-------|------------------|--------|-----------|
+| US-001: Database schema | ❌ No | ❌ No | Backend infrastructure |
+| US-002: User settings page | ✅ Yes | ❌ No | User-facing UI |
+| US-003: List events API | ⚠️ ? | ⚠️ ? | Could be chat-accessible - confirm? |
 
 Please confirm or adjust the ⚠️ values before I finalize.
 ```

@@ -13,7 +13,6 @@
         "typecheck",
         "lint",
         "test",
-        "e2e",
         "visual-verify",
         "commit",
         "toolkit-suggestions"
@@ -35,11 +34,6 @@
   },
 
   "conditionalSteps": {
-    "e2e-write": {
-      "description": "Write new E2E tests for the feature",
-      "prdCondition": "story.e2eRequired === true",
-      "adhocCondition": null
-    },
     "support-article": {
       "description": "Create or update support articles",
       "prdCondition": "story.supportArticleRequired === true",
@@ -102,16 +96,6 @@
       "description": "Run @tester in ad-hoc mode (scoped to changed files)",
       "needsDevServer": false,
       "condition": "testing.unit is configured"
-    },
-    "e2e": {
-      "description": "Run E2E test suite",
-      "needsDevServer": true,
-      "condition": "testing.e2e is configured"
-    },
-    "e2e-write": {
-      "description": "Run @ui-tester-playwright to write new E2E tests",
-      "needsDevServer": true,
-      "condition": "testing.e2e is configured"
     },
     "support-article": {
       "description": "Run @support-article-writer to create/update support articles",

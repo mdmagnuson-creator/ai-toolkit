@@ -322,35 +322,6 @@
               "default": 0
             }
           }
-        },
-        "e2e": {
-          "type": "object",
-          "properties": {
-            "generated": {
-              "type": "array",
-              "items": { "type": "string" },
-              "description": "Paths to generated E2E test files"
-            },
-            "status": {
-              "type": "string",
-              "enum": ["pending", "running", "passed", "failed", "deferred"],
-              "description": "Current test status"
-            },
-            "deferredTo": {
-              "type": ["string", "null"],
-              "enum": ["prd-completion", "manual", null],
-              "description": "If deferred, when should tests run"
-            },
-            "lastRunAt": {
-              "type": ["string", "null"],
-              "format": "date-time"
-            },
-            "failureCount": {
-              "type": "integer",
-              "default": 0
-            }
-          }
-        }
       }
     },
 
@@ -382,7 +353,7 @@
       "properties": {
         "flow": {
           "type": ["string", "null"],
-          "enum": ["prd", "adhoc", "updates", "e2e", null],
+          "enum": ["prd", "adhoc", "updates", null],
           "description": "Active workflow that owns the current todo list"
         },
         "lastSyncedAt": {
@@ -411,12 +382,12 @@
               },
               "flow": {
                 "type": "string",
-                "enum": ["prd", "adhoc", "updates", "e2e"],
+                "enum": ["prd", "adhoc", "updates"],
                 "description": "Workflow that created the todo"
               },
               "refId": {
                 "type": "string",
-                "description": "Stable identifier (story id, adhoc id, update filename, or e2e file)"
+                "description": "Stable identifier (story id, adhoc id, update filename)"
               }
             },
             "required": ["content", "status", "priority", "flow", "refId"]
@@ -470,7 +441,7 @@
             "properties": {
               "activity": {
                 "type": "string",
-                "description": "Verification activity type (unit-test, e2e, typecheck, lint, critic)"
+                "description": "Verification activity type (unit-test, typecheck, lint, critic)"
               },
               "description": {
                 "type": "string",
@@ -483,7 +454,7 @@
               "timing": {
                 "type": "string",
                 "enum": ["immediate", "deferred"],
-                "description": "When this criterion is checked (for E2E tests)"
+                "description": "When this criterion is checked"
               }
             },
             "required": ["activity", "description"]

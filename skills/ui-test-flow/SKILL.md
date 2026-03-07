@@ -84,7 +84,7 @@ Task complete
     ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │ Show completion prompt                                               │
-│ [E] Write E2E  [C] Commit  [N] Next task                            │
+│ [C] Commit  [N] Next task                                            │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
@@ -273,85 +273,6 @@ export default defineConfig({
   ],
 });
 ```
-
----
-
-## Deferred E2E Test Flow (Post-PRD-Completion)
-
-> 🎯 **This is NOT ad-hoc work.** Do NOT load the adhoc-workflow skill.
-
-### Step 0: Check for Local Runtime
-
-```bash
-# Electron apps don't need devPort — they launch directly
-DEPLOYMENT=$(jq -r '.architecture.deployment // empty' docs/project.json)
-if [ "$DEPLOYMENT" = "electron-only" ]; then
-  echo "✅ Electron-only project — no devPort needed for E2E"
-else
-  # Resolve test URL using the priority chain (see test-url-resolution skill)
-  # testVerifySettings gate should have been checked by the caller before reaching here
-  DEV_PORT=$(jq -r '.projects[] | select(.path == "'"$(pwd)"'") | .devPort' ~/.config/opencode/projects.json)
-  if [ "$DEV_PORT" = "null" ]; then
-    echo "❌ Cannot resolve test URL: devPort is null and no testBaseUrl or staging URL configured"
-    echo "   Configure testBaseUrl in projects.json or set up a staging environment"
-  fi
-fi
-```
-
-### Step 1: Identify the Source
-
-Read `builder-state.json` → `pendingTests.e2e`:
-
-```json
-{
-  "pendingTests": {
-    "e2e": {
-      "generated": ["apps/web/e2e/recurrence-ui.spec.ts"],
-      "status": "pending",
-      "deferredTo": "prd-completion",
-      "sourcePrd": "prd-recurring-events"
-    }
-  }
-}
-```
-
-### Step 2: Determine Where to Run
-
-```bash
-BRANCH=$(jq -r '.prds[] | select(.id == "prd-recurring-events") | .branchName' docs/prd-registry.json)
-git show-ref --verify --quiet "refs/heads/$BRANCH" 2>/dev/null || \
-git show-ref --verify --quiet "refs/remotes/origin/$BRANCH" 2>/dev/null
-```
-
-**If branch exists:** Checkout the PRD branch
-**If branch is gone:** Stay on current branch (likely `main`)
-
-### Step 3: Confirm and Run
-
-```
-═══════════════════════════════════════════════════════════════════════
-                    RUN DEFERRED E2E TESTS
-═══════════════════════════════════════════════════════════════════════
-
-Source: prd-recurring-events (awaiting_e2e)
-Branch: feature/recurring-events (checked out)
-
-E2E tests to run:
-  • apps/web/e2e/recurrence-ui.spec.ts
-
-[R] Run tests    [C] Cancel
-
-> _
-═══════════════════════════════════════════════════════════════════════
-```
-
-### Step 4: Update PRD Status to Completed
-
-On successful E2E tests:
-
-1. Clear `pendingTests.e2e` from `builder-state.json`
-2. Update `prd-registry.json`: `status: "completed"`
-3. Archive the PRD
 
 ---
 

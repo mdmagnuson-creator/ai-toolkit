@@ -40,7 +40,7 @@ Write state atomically (read → modify → write) at these key moments:
 | **Session start** | Set `sessionId`, `lastHeartbeat` |
 | **Enter ad-hoc mode** | Set `activeWork.analysisCompleted: false` (MANDATORY — see Analysis Gate section) |
 | **User approves analysis [G]** | Set `activeWork.analysisCompleted: true` |
-| **Claim PRD** | Set `activeWork` with PRD details (mode: "prd", including `testingRigor`), clear old work if any |
+| **Claim PRD** | Set `activeWork` with PRD details (mode: "prd"), clear old work if any |
 | **Start story** | Update `activeWork.currentStoryIndex` and set story status to `in_progress` |
 | **Resolve story intensity** | Update `activeWork.stories[]` with effective intensity (test-flow handles at runtime) |
 | **Complete story** | Move story from `storiesPending` to `storiesCompleted`, clear `currentStory` |
@@ -265,7 +265,6 @@ Suggested state fields when tracking git context:
       { "id": "US-005", "description": "Write E2E tests", "status": "pending", "filesChanged": [] }
     ],
     "currentStoryIndex": 2,
-    "testingRigor": "standard",
     "resolvedActivities": [],
     "implementationDecisions": [],
     "analysisCompleted": true

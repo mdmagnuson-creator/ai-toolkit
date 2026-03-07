@@ -251,37 +251,6 @@ When a user skips a test, record it in `test-debt.json` so future changes to tha
 
 ---
 
-## E2E Test Failure After PRD Completion
-
-```
-═══════════════════════════════════════════════════════════════════════
-                    ❌ E2E TESTS FAILED
-═══════════════════════════════════════════════════════════════════════
-
-  ❌ apps/web/e2e/recurrence-ui.spec.ts
-     • Test "should display recurrence options" failed
-     • Element not found: [data-testid="recurrence-select"]
-
-Failed after 3 fix attempts.
-
-PRD remains in `awaiting_e2e` status.
-
-Options:
-  [M] Fix manually, then type "retry"
-  [S] Skip E2E tests (mark completed anyway)
-  [D] Debug with @developer
-
-> _
-═══════════════════════════════════════════════════════════════════════
-```
-
-**If user chooses [S] Skip:**
-- Update PRD to `completed` with `e2eSkipped: true`
-- Log: "E2E tests skipped by user after failures"
-- Clear the pending E2E queue
-
----
-
 ## External Service Handling
 
 External service failures (503, 429) **cannot be automatically fixed**:
