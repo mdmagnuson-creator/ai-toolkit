@@ -135,6 +135,11 @@ canonicalSource:
         | web      | next      | true       | HMR      |
         | desktop  | electron  | true       | rebuild  |
         ...
+        
+        ### Post-Change Actions (after commit)
+        project.json → postChangeActions[] defines downstream propagation
+        (support articles, AI tools, marketing pages, pending updates).
+        See test-flow → Section 5.5 for execution details.
     - file: skills/auth-headless/SKILL.md
       lines: "331-359"
       content: |

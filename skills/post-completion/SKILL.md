@@ -1,6 +1,6 @@
 ---
 name: post-completion
-description: "Post-completion polish steps for Developer. Use when all PRD stories pass but before declaring COMPLETE. Triggers on: post-completion, polish, aesthetic review, support articles, final checks."
+description: "Post-completion polish steps for Developer. Use when all PRD stories pass but before declaring COMPLETE. Triggers on: post-completion, polish, aesthetic review, post-change actions, final checks."
 ---
 
 # Post-Completion Polish
@@ -41,27 +41,19 @@ If ANY stories modified UI files (`.tsx`, `.jsx`, `.css`, `.scss`):
 
 ---
 
-## Step B: Generate Missing Support Articles
+## Step B: Run Post-Change Actions
 
-Read the PRD and for each story where `supportArticleRequired: true`:
+> **Support articles, AI tools, marketing pages, and other downstream propagation are now handled by `postChangeActions` in `project.json`.**
+> These fire automatically after each story commit (see `test-flow` → Section 5.5).
+> By the time post-completion runs, per-story postChangeActions have already executed.
 
-1. **Check if support article was already created** during that story (look for recent migrations or markdown files)
+At this point, check if any **PRD-level** post-change actions remain:
 
-2. **If support article is missing**, invoke @support-article-writer:
-   ```
-   @support-article-writer: Create support article for feature.
-   
-   Story: [US-XXX] [Title]
-   Description: [story description]
-   Acceptance criteria: [list]
-   Documentation type: [new/update from PRD]
-   Article slug: [slug from PRD]
-   Changed files: [list of files changed by this story]
-   ```
+1. **Review `postChangeActions` with `trigger: "feature-change"`** — these may need a final holistic pass now that the full feature is implemented
+2. **If any pending-update actions target a related project**, verify the update files were created during story commits
+3. **If any agent actions were configured**, verify the agents completed successfully
 
-3. **Wait for support-article-writer to complete**
-
-4. **Commit documentation changes:** `docs: add support article for [feature]`
+If all post-change actions already ran per-story, no additional action needed here.
 
 ---
 
@@ -91,15 +83,18 @@ Read the PRD and for each story where `supportArticleRequired: true`:
 
 ---
 
-## Step D: Copy Review for New Articles
+## Step D: Verify Post-Change Action Results
 
-If new support articles were created during Step B:
+Review all post-change actions that fired during the PRD:
 
-1. **Invoke @copy-critic** on the new article content (read the migration file or markdown)
+1. **Check for any failed actions** — look for warnings in commit logs or session state
+2. **If any pending-update files were created in related projects**, verify they exist:
+   ```bash
+   ls <related-project>/docs/pending-updates/*.md 2>/dev/null
+   ```
+3. **If any agent actions produced artifacts** (support articles, tool definitions, marketing pages), verify they are committed
 
-2. **If Critical feedback exists**, update the article before proceeding
-
-3. **Commit any copy improvements:** `docs: improve support article copy`
+If all actions succeeded, proceed to completion.
 
 ---
 

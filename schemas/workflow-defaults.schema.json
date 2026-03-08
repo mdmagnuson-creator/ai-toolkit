@@ -45,7 +45,7 @@
 
     "conditionalSteps": {
       "type": "object",
-      "description": "Steps that are added conditionally based on story flags or capabilities",
+      "description": "Steps that are added conditionally based on story flags or capabilities. NOTE: support-article, tools, and marketing have been moved to postChangeActions in project.json.",
       "additionalProperties": {
         "$ref": "#/$defs/conditionalStep"
       }
@@ -74,9 +74,6 @@
         "tester-scoped",
         "e2e",
         "e2e-write",
-        "support-article",
-        "tools",
-        "marketing",
         "visual-verify",
         "commit",
         "report",

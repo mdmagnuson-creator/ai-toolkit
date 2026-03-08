@@ -827,6 +827,119 @@
       }
     },
 
+    "postChangeActions": {
+      "type": "array",
+      "description": "Actions to run AFTER commit. These propagate changes to related systems — marketing sites, support articles, native app builds, documentation syncs, etc. Runs after the quality pipeline and commit. Each action has a type that determines how it executes.",
+      "items": {
+        "type": "object",
+        "required": ["id", "name", "type"],
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9-]+$",
+            "description": "Unique action identifier (kebab-case)"
+          },
+          "name": {
+            "type": "string",
+            "description": "Human-readable action name shown in progress output"
+          },
+          "type": {
+            "type": "string",
+            "enum": ["pending-update", "agent", "command", "notify"],
+            "description": "Action type: pending-update (create docs/pending-updates/ file in target project), agent (invoke a specialist agent), command (run shell command), notify (display message to user)"
+          },
+          "target": {
+            "type": "object",
+            "description": "Target project for pending-update actions. Resolved via relatedProjects.",
+            "properties": {
+              "relationship": {
+                "type": "string",
+                "description": "Relationship type from relatedProjects (e.g., 'marketing-site', 'documentation-site')"
+              },
+              "label": {
+                "type": "string",
+                "description": "Optional label to disambiguate when multiple projects share the same relationship type"
+              }
+            },
+            "required": ["relationship"]
+          },
+          "agent": {
+            "type": "string",
+            "description": "Agent to invoke for type 'agent' (e.g., '@support-article-writer', '@tools-writer', '@public-page-dev')"
+          },
+          "command": {
+            "type": "string",
+            "description": "Shell command to run for type 'command' (e.g., 'xcodebuild build', 'flutter build ios')"
+          },
+          "message": {
+            "type": "string",
+            "description": "Message to display for type 'notify'"
+          },
+          "template": {
+            "type": "string",
+            "description": "For pending-update actions: description template for the update file. Builder fills in specifics based on what changed."
+          },
+          "updateType": {
+            "type": "string",
+            "enum": ["sync", "review", "rebuild", "config"],
+            "default": "sync",
+            "description": "For pending-update actions: the updateType written into the pending-update file header"
+          },
+          "priority": {
+            "type": "string",
+            "enum": ["normal", "high", "critical"],
+            "default": "normal",
+            "description": "Priority level for pending-update actions or execution priority for commands"
+          },
+          "trigger": {
+            "type": "object",
+            "description": "When this action should run. If omitted, the action runs on every change.",
+            "properties": {
+              "condition": {
+                "type": "string",
+                "enum": ["always", "files-changed-in", "feature-change", "user-facing-change"],
+                "default": "always",
+                "description": "Trigger condition: always (every change), files-changed-in (match pathPatterns against changed files), feature-change (agent judges if this was a feature-level change), user-facing-change (agent judges if user-visible behavior changed)"
+              },
+              "pathPatterns": {
+                "type": "array",
+                "items": { "type": "string" },
+                "description": "Glob patterns to match against changed files. Used with 'files-changed-in' condition."
+              },
+              "requires": {
+                "type": "string",
+                "description": "Dot-path capability check (e.g., 'capabilities.ai', 'capabilities.supportDocs'). Action is skipped if the capability is falsy."
+              }
+            }
+          },
+          "modes": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "enum": ["prd", "adhoc"]
+            },
+            "default": ["prd", "adhoc"],
+            "description": "Which workflow modes this action applies to. Defaults to both."
+          },
+          "continueOnFailure": {
+            "type": "boolean",
+            "default": true,
+            "description": "Whether to continue executing remaining actions if this one fails. Defaults to true since post-change actions should not block the workflow."
+          },
+          "timeoutMs": {
+            "type": "integer",
+            "minimum": 5000,
+            "default": 120000,
+            "description": "Timeout in milliseconds for command-type actions"
+          },
+          "notes": {
+            "type": "string",
+            "description": "Why this action exists or implementation notes"
+          }
+        }
+      }
+    },
+
     "capabilities": {
       "type": "object",
       "description": "Project capabilities. Set at bootstrap, updated by agents as new integrations are added. Used to determine which workflow steps are applicable.",
@@ -966,9 +1079,6 @@
               "tester-scoped",
               "e2e",
               "e2e-write",
-              "support-article",
-              "tools",
-              "marketing",
               "visual-verify",
               "commit",
               "report",
@@ -992,9 +1102,6 @@
               "tester-scoped",
               "e2e",
               "e2e-write",
-              "support-article",
-              "tools",
-              "marketing",
               "visual-verify",
               "commit",
               "report",

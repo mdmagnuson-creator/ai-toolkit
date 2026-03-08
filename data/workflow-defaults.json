@@ -1,7 +1,7 @@
 {
   "$schema": "../schemas/workflow-defaults.schema.json",
   "version": "1.0.0",
-  "lastUpdated": "2026-02-20",
+  "lastUpdated": "2026-03-08",
   "description": "Default workflow steps for PRD and ad-hoc modes. Projects can override these by defining workflows in their project.json.",
 
   "workflows": {
@@ -34,21 +34,6 @@
   },
 
   "conditionalSteps": {
-    "support-article": {
-      "description": "Create or update support articles",
-      "prdCondition": "story.supportArticleRequired === true",
-      "adhocCondition": null
-    },
-    "tools": {
-      "description": "Update AI chatbot tools",
-      "prdCondition": "capabilities.ai === true && story.toolsRequired === true",
-      "adhocCondition": null
-    },
-    "marketing": {
-      "description": "Update marketing pages",
-      "prdCondition": "capabilities.marketing === true && story.marketingRequired === true",
-      "adhocCondition": null
-    },
     "tester-scoped": {
       "description": "Write tests scoped to changed files only",
       "prdCondition": null,
@@ -96,21 +81,6 @@
       "description": "Run @tester in ad-hoc mode (scoped to changed files)",
       "needsDevServer": false,
       "condition": "testing.unit is configured"
-    },
-    "support-article": {
-      "description": "Run @support-article-writer to create/update support articles",
-      "needsDevServer": true,
-      "condition": "capabilities.supportDocs === true"
-    },
-    "tools": {
-      "description": "Run @tools-writer to update AI chatbot tools",
-      "needsDevServer": false,
-      "condition": "capabilities.ai === true && capabilities.aiTools is configured"
-    },
-    "marketing": {
-      "description": "Run @public-page-dev to update marketing pages",
-      "needsDevServer": false,
-      "condition": "capabilities.marketing === true"
     },
     "visual-verify": {
       "description": "Take screenshot to verify UI changes",

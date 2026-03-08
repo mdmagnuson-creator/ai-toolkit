@@ -1,7 +1,7 @@
 {
   "$schema": "https://opencode.ai/schemas/toolkit-structure.json",
   "version": "1.0.0",
-  "generatedAt": "2026-03-08T06:00:00Z",
+  "generatedAt": "2026-03-08T22:00:00Z",
   "repository": "https://github.com/mdmagnuson-creator/yo-go",
   "agents": {
     "total": 63,
@@ -360,9 +360,9 @@
             "description": "Ad-hoc mode workflow for Builder. Use when handling direct requests without a PRD, quick fixes, or one-off tasks. Triggers on: ad-hoc mode, quick fix, direct request, one-off task."
           },
           {
-            "name": "builder-state",
-            "path": "skills/builder-state/SKILL.md",
-            "description": "Manage builder session state for resumability. Use when reading/writing builder-state.json, updating heartbeat, or resuming sessions. Triggers on: session state, builder state, heartbeat, resume session."
+            "name": "session-log",
+            "path": "skills/session-log/SKILL.md",
+            "description": "Manage persistent session logs for Builder. Use when initializing sessions, managing chunks, writing session state, or resuming sessions. Triggers on: session log, session state, chunk management, session resume, heartbeat, session init."
           },
           {
             "name": "git-sync",
@@ -377,7 +377,7 @@
           {
             "name": "post-completion",
             "path": "skills/post-completion/SKILL.md",
-            "description": "Post-completion polish steps for Developer. Use when all PRD stories pass but before declaring COMPLETE. Triggers on: post-completion, polish, aesthetic review, support articles, final checks."
+            "description": "Post-completion polish steps for Developer. Use when all PRD stories pass but before declaring COMPLETE. Triggers on: post-completion, polish, aesthetic review, post-change actions, final checks."
           },
           {
             "name": "prd",
@@ -719,7 +719,7 @@
     }
   },
   "schemas": {
-    "total": 16,
+    "total": 18,
     "items": [
       {
         "name": "applied-updates.schema",
@@ -727,9 +727,14 @@
         "description": "Tracks updates that have been applied to a project, enabling cross-machine sync and audit trail"
       },
       {
-        "name": "builder-state.schema",
-        "file": "schemas/builder-state.schema.json",
-        "description": "Tracks Builder session state for resumability. Lives at docs/builder-state.json in each project."
+        "name": "builder-config.schema",
+        "file": "schemas/builder-config.schema.json",
+        "description": "Builder configuration schema for session log system — lean execution thresholds, context budgets, and chunk settings"
+      },
+      {
+        "name": "chunk.schema",
+        "file": "schemas/chunk.schema.json",
+        "description": "Schema for session log chunks — story/task execution records with carry-forward context"
       },
       {
         "name": "ui-test-audit-manifest.schema",
@@ -760,6 +765,11 @@
         "name": "requirements.schema",
         "file": "schemas/requirements.schema.json",
         "description": "Structured requirements extracted from a project spec or PRD for stack recommendation and scaffolding"
+      },
+      {
+        "name": "session.schema",
+        "file": "schemas/session.schema.json",
+        "description": "Schema for persistent session logs — session metadata, chunk references, and git integration"
       },
       {
         "name": "skill-mapping.schema",
@@ -1003,6 +1013,66 @@
   "changelog": {
     "generatedFrom": "git log --since=30 days",
     "entries": [
+      {
+        "type": "feat",
+        "scope": "schemas",
+        "description": "add postChangeActions configuration to project.schema.json — pending-update, agent, command, notify action types with trigger conditions (always, files-changed-in, feature-change, user-facing-change)",
+        "hash": "pending"
+      },
+      {
+        "type": "refactor",
+        "scope": "schemas",
+        "description": "remove support-article, tools, marketing from workflow step enums in project.schema.json and workflow-defaults.schema.json — replaced by postChangeActions",
+        "hash": "pending"
+      },
+      {
+        "type": "refactor",
+        "scope": "data",
+        "description": "remove support-article/tools/marketing conditionalSteps and stepReference entries from workflow-defaults.json — replaced by postChangeActions",
+        "hash": "pending"
+      },
+      {
+        "type": "feat",
+        "scope": "skills",
+        "description": "add Section 5.5 Post-Change Actions (After Commit) to test-flow — trigger evaluation, action execution, and error handling",
+        "hash": "pending"
+      },
+      {
+        "type": "refactor",
+        "scope": "skills",
+        "description": "replace hardcoded supportArticleRequired/toolsRequired/marketingRequired story flags with postChangeActions reference in prd-workflow",
+        "hash": "pending"
+      },
+      {
+        "type": "refactor",
+        "scope": "skills",
+        "description": "replace Step B (support articles) and Step D (copy review) with postChangeActions verification in post-completion",
+        "hash": "pending"
+      },
+      {
+        "type": "feat",
+        "scope": "skills",
+        "description": "add Post-Change Actions section to canonical source example in builder-delegation",
+        "hash": "pending"
+      },
+      {
+        "type": "feat",
+        "scope": "data",
+        "description": "add 2026-03-08-migrate-to-post-change-actions entry to update-registry.json with all-projects affinity",
+        "hash": "pending"
+      },
+      {
+        "type": "feat",
+        "scope": "templates",
+        "description": "create migrate-to-post-change-actions.md interactive migration template for all projects",
+        "hash": "pending"
+      },
+      {
+        "type": "refactor",
+        "scope": "schemas",
+        "description": "fix toolkit-structure.json schema entries — replace deleted builder-state.schema with session.schema, chunk.schema, builder-config.schema (total 16→18)",
+        "hash": "pending"
+      },
       {
         "type": "feat",
         "scope": "agents",

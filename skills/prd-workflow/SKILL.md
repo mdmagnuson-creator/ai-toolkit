@@ -346,10 +346,10 @@ For each story in priority order:
                Report and ask user
    ```
 
-2. **Handle story-specific flags:**
-   - `supportArticleRequired: true` → Run `support-article` step
-   - `toolsRequired: true` → Run `tools` step (if `capabilities.ai`)
-   - `marketingRequired: true` → Run `marketing` step (if `capabilities.marketing`)
+2. **Post-change actions** run automatically after commit (see `test-flow` → Section 5.5):
+   - `postChangeActions` in `project.json` defines downstream propagation (support articles, AI tools, marketing pages, pending updates)
+   - These fire after the per-story commit in Step 2.5, not during the quality pipeline
+   - No story-level flags needed — trigger conditions in `postChangeActions` determine what runs
 
 3. **Update heartbeat** periodically in session lock
 
