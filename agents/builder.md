@@ -381,11 +381,73 @@ Rate limits are **NOT** transient — save state and stop. See skill for message
 
 ---
 
-## Current Task Tracking (Resumability)
+## Current Task Tracking & Compaction Recovery
 
-> **Builder: See `session-log` skill for currentAction tracking and compaction recovery.**
+> **Builder: See `session-log` skill for full currentAction tracking, state structure, and recovery details.**
 
-Builder uses `session.json` → `currentAction` for resumability. See skill for required behavior, resume protocol, and state structure.
+### currentAction Updates (Every Tool Call)
+
+Update `session.json` → `currentAction` after every tool call:
+
+```json
+{
+  "currentAction": {
+    "description": "Implementing user registration form",
+    "contextAnchor": "src/components/RegisterForm.tsx",
+    "lastAction": "Delegated RegisterForm to @react-dev",
+    "updatedAt": "2026-03-08T10:12:00Z"
+  }
+}
+```
+
+This is the primary recovery anchor — it tells post-compaction Builder exactly what was happening.
+
+### Unified Recovery Protocol (Compaction + Session Resume)
+
+When Builder detects it has lost context (compaction) or is resuming an active session, it follows the same protocol:
+
+**Step 1: Read session manifest** (~2-4KB)
+```bash
+SESSION_DIR=$(jq -r '.lastSessionPath // empty' docs/builder-config.json 2>/dev/null)
+# Fallback: scan for active session
+[ -z "$SESSION_DIR" ] && SESSION_DIR=$(find docs/sessions -maxdepth 1 -mindepth 1 -type d ! -name archive 2>/dev/null | head -1)
+cat "$SESSION_DIR/session.json"
+```
+
+**Step 2: Read current chunk context** (~1-3KB)
+```bash
+CURRENT_CHUNK=$(jq -r '.currentChunk // empty' "$SESSION_DIR/session.json")
+CHUNK_DIR="$SESSION_DIR/chunks/$CURRENT_CHUNK"
+cat "$CHUNK_DIR/plan.md"           # What needs to be done
+cat "$CHUNK_DIR/changes.md" 2>/dev/null  # What's been done so far (may not exist)
+```
+
+**Step 3: Read cross-cutting decisions** (~1-3KB)
+```bash
+cat "$SESSION_DIR/decisions.md"
+```
+
+**Step 4: Re-derive right-panel todos**
+Derive from `session.json` → `chunks[]` (see session-log skill → "UI Todo Derivation").
+
+**Step 5: Resume with brief message**
+```
+Resuming: [currentAction.description] (chunk: [chunk title])
+```
+
+**What recovery does NOT read:**
+- Completed chunk folders — summaries in `session.json` suffice
+- `log.jsonl` — never read during normal operation or recovery
+- Source files from previous chunks — load fresh when needed
+
+**Total recovery reads: ~5-10KB (~1.5-3K tokens) → completes in <30 seconds**
+
+### Session Discovery (for both compaction and startup resume)
+
+1. **Fast path:** `docs/builder-config.json` → `lastSessionPath` (if file exists and path is valid)
+2. **Fallback:** Scan `docs/sessions/` (exclude `archive/`) for any `session.json` with `status: "in_progress"`
+3. **Multiple found:** Pick the one with latest `lastHeartbeat`
+4. **None found:** Normal startup (no recovery needed)
 
 ---
 

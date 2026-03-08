@@ -478,14 +478,14 @@ When all chunks are completed (or session is explicitly closed):
 3. **Update `builder-config.json`:** Clear `lastSessionPath`
 4. **Commit:** `git add -A && git commit -m "chore: Archive completed session {session-id}"`
 
-## Compaction Recovery
+## Compaction Recovery (Unified Protocol)
 
-Recovery is trivial with the session log:
+The same protocol handles both context compaction and session resume. Recovery is trivial with the session log:
 
 1. **Read `session.json`** (~2-4KB) → full session picture with all chunk summaries
-2. **Read `currentAction`** → know exactly what was being done
+2. **Read `currentAction`** → know exactly what was being done (primary recovery anchor)
 3. **Read current chunk's `plan.md`** → know what needs to be accomplished
-4. **Read current chunk's `changes.md`** (if exists) → know what's been done so far
+4. **Read current chunk's `changes.md`** (if exists) → know what's been done so far in this chunk
 5. **Read `decisions.md`** → know cross-cutting decisions
 6. **Re-derive right-panel todos** from `session.json` → `chunks[]`
 7. **Resume work** — all context reconstructed from ~5-10KB of targeted reads
@@ -494,7 +494,17 @@ Recovery is trivial with the session log:
 
 **Recovery does NOT read:**
 - Completed chunk folders (summaries in `session.json` suffice)
-- `log.jsonl` (never read during normal operation)
+- `log.jsonl` (never read during normal operation or recovery)
+- Source files from previous chunks (load fresh when needed)
+
+**Total recovery: ~5-10KB / ~1.5-3K tokens → <30 seconds**
+
+### Session Discovery
+
+1. **Fast path:** `docs/builder-config.json` → `lastSessionPath`
+2. **Fallback:** Scan `docs/sessions/` (exclude `archive/`) for `session.json` with `status: "in_progress"`
+3. **Multiple found:** Pick latest `lastHeartbeat`
+4. **None found:** Normal startup (no recovery)
 
 ## Heartbeat Management
 
