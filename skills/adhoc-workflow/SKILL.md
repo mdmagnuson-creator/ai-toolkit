@@ -1094,22 +1094,22 @@ When user selects `[F] Show implementation flow chart`, generate an ASCII flow c
             │
   ┌─────────────────────────────────────────────────┐
   │ TSK-001: Add loading state to SubmitButton       │
-  │   implement → test-flow → auto-commit            │
+  │   implement → test-flow → commit → postActions   │
   └──────────────────────┬──────────────────────────┘
                          │
   ┌─────────────────────────────────────────────────┐
   │ TSK-002: Show Spinner when loading               │
-  │   implement → test-flow → auto-commit            │
+  │   implement → test-flow → commit → postActions   │
   └──────────────────────┬──────────────────────────┘
                          │
   ┌─────────────────────────────────────────────────┐
   │ TSK-003: Disable button during submission        │
-  │   implement → test-flow → auto-commit            │
+  │   implement → test-flow → commit → postActions   │
   └──────────────────────┬──────────────────────────┘
                          │
   ┌─────────────────────────────────────────────────┐
   │ TSK-004: Add unit tests                          │
-  │   implement → test-flow → auto-commit            │
+  │   implement → test-flow → commit → postActions   │
   └─────────────────────────────────────────────────┘
 
   Pipeline per story:
@@ -1117,6 +1117,7 @@ When user selects `[F] Show implementation flow chart`, generate an ASCII flow c
     2. Delegate to @developer
     3. Run test-flow (typecheck → lint → test → Playwright → fix loop)
     4. Auto-commit (mandatory, unconditional)
+    4.5. Execute postChangeActions (from project.json)
     5. Update status → completed
     6. Advance to next story
 
@@ -1921,6 +1922,21 @@ git commit -m "feat: Add loading spinner to submit button
 
 Task-Spec: task-2026-03-01-add-spinner"
 ```
+
+### Step 1.5: Execute postChangeActions (MANDATORY)
+
+> ⛔ **This step is MANDATORY after every ad-hoc commit — same as Step 4.5 in the Story Processing Pipeline.**
+>
+> **Failure behavior:** If you find yourself pushing or declaring the task complete without having checked and executed `postChangeActions` — STOP and go back.
+
+After the commit succeeds, read and execute `project.json` → `postChangeActions[]`.
+Each action's `trigger.condition` is evaluated against the committed changes.
+Actions execute in order: `command` → run shell command, `pending-update` → create file in target project, `agent` → invoke agent, `notify` → display message.
+
+Report per action: `✅ pass`, `⚠️ warn`, or `❌ fail` (per `failureMode`).
+
+> 📚 See `builder.md` → Story Processing Pipeline → Step 4.5 for the full decision tree.
+> See `test-flow` → Section 5.5 for detailed execution logic per action type.
 
 ### Step 2: Push and PR (Git Completion Workflow)
 

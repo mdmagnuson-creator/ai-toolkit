@@ -1257,7 +1257,7 @@ Load `builder-delegation` skill for full context block format and semantic searc
 
 ```
 for each chunk in session.chunks where status == "pending":
-    run Pipeline Steps 1–6
+    run Pipeline Steps 1–6 (including 4.5)
 ```
 
 ### Pipeline Steps
@@ -1303,6 +1303,53 @@ git add -A
 git commit -m "feat: [story description] ([story-id])"
 ```
 
+**Step 4.5: Execute postChangeActions → mandatory after commit**
+
+> ⛔ **This step is MANDATORY and UNCONDITIONAL after every commit — both PRD per-story commits and ad-hoc task commits.**
+>
+> **Failure behavior:** If you find yourself advancing to Step 5 (status update) or declaring a task complete without having checked and executed `postChangeActions` — STOP and go back.
+
+After the commit succeeds, read and execute `project.json` → `postChangeActions`:
+
+```
+Commit succeeds (Step 4)
+    │
+    ▼
+Read project.json → postChangeActions[]
+    │
+    ├─── No postChangeActions defined ──► Skip to Step 5
+    │
+    └─── Has postChangeActions ──► Evaluate each action's trigger.condition
+              │
+              ▼
+         For each action where trigger matches:
+              │
+              ├── type: "command"        ──► Run shell command in project root
+              ├── type: "pending-update" ──► Create docs/pending-updates/ file in target project
+              ├── type: "agent"          ──► Invoke the specified agent
+              └── type: "notify"         ──► Display message to user
+```
+
+**Trigger evaluation:**
+
+| Trigger condition | How to evaluate |
+|-------------------|-----------------|
+| `always` | Always fires |
+| `files-changed-in` | Check if any committed files match `pathPatterns` globs |
+| `feature-change` | Agent judgment: did this change add/modify a user-facing feature? |
+| `user-facing-change` | Agent judgment: did this change affect anything a user would see? |
+
+**Error handling per `failureMode`:**
+
+| failureMode | Behavior on failure |
+|-------------|---------------------|
+| `warn` (default) | Log warning, continue to next action and Step 5 |
+| `block` | STOP pipeline, report error to user, wait for input |
+
+Report result per action: `✅ pass`, `⚠️ warn` (failed but non-blocking), or `❌ fail` (blocking).
+
+> 📚 **SKILL: test-flow** → "Section 5.5: Post-Change Actions" for full execution details including `pending-update` auto-commit, `agent` invocation, and variable substitution (`{changedFiles}`, `{storyId}`, `{prdId}`).
+
 **Step 5: Update story status → completed**
 
 Update the current chunk in `session.json` → `chunks[]`:
@@ -1310,6 +1357,7 @@ Update the current chunk in `session.json` → `chunks[]`:
 - `committedAt`: ISO timestamp
 - `commitHash`: from `git rev-parse HEAD`
 - `testFlowResult`: pass/fail summary from Step 3
+- `postChangeActionsResult`: pass/warn/fail summary from Step 4.5
 
 Also update `chunk.json` with final verification results.
 
@@ -1323,6 +1371,8 @@ Advance `session.json` → `currentChunk` to the next pending chunk.
 |---------------|-------------|-----------------|
 | @developer returns error (Step 2) | `failed` | STOP — report to user |
 | test-flow exhausts retries (Step 3) | `failed` | STOP — report to user |
+| postChangeActions with `failureMode: "block"` fails (Step 4.5) | `failed` | STOP — report to user |
+| postChangeActions with `failureMode: "warn"` fails (Step 4.5) | continues | Log warning, proceed to Step 5 |
 
 When pipeline stops due to failure, Builder shows the failure context and waits for user input before proceeding.
 

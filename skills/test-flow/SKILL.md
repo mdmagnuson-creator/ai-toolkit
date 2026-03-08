@@ -670,8 +670,13 @@ Options:
 
 ## Section 5.5: Post-Change Actions (After Commit)
 
+> ⛔ **MANDATORY — corresponds to Story Processing Pipeline Step 4.5 in `builder.md`.**
+>
 > **Runs AFTER commit, not before.** postChangeActions fire once per commit to propagate changes downstream.
 > These are distinct from the quality pipeline (Section 3) which runs before commit.
+>
+> **Applies to ALL commit paths:** PRD per-story commits (Pipeline Step 4), ad-hoc task commits (Phase 2 → Step 1), and any other auto-commit.
+> **Failure behavior:** If Builder commits and moves on without checking postChangeActions, the pipeline contract is violated.
 
 After the user chooses **[C] Commit** and the commit succeeds, check `project.json` → `postChangeActions`:
 

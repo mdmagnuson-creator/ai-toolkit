@@ -1,7 +1,7 @@
 {
   "$schema": "https://opencode.ai/schemas/toolkit-structure.json",
   "version": "1.0.0",
-  "generatedAt": "2026-03-08T22:00:00Z",
+  "generatedAt": "2026-03-08T23:30:00Z",
   "repository": "https://github.com/mdmagnuson-creator/yo-go",
   "agents": {
     "total": 63,
@@ -1013,6 +1013,30 @@
   "changelog": {
     "generatedFrom": "git log --since=30 days",
     "entries": [
+      {
+        "type": "feat",
+        "scope": "agents",
+        "description": "add Step 4.5 (postChangeActions) to builder Story Processing Pipeline — mandatory post-commit execution with trigger evaluation and failure modes",
+        "hash": "pending"
+      },
+      {
+        "type": "feat",
+        "scope": "skills",
+        "description": "add Step 1.5 (postChangeActions) to adhoc-workflow Phase 2 Ship — mirrors Pipeline Step 4.5 for ad-hoc commit flow",
+        "hash": "pending"
+      },
+      {
+        "type": "refactor",
+        "scope": "skills",
+        "description": "strengthen test-flow Section 5.5 with MANDATORY gate, pipeline step reference, and all-commit-paths applicability",
+        "hash": "pending"
+      },
+      {
+        "type": "refactor",
+        "scope": "skills",
+        "description": "update prd-workflow pipeline summary and postChangeActions reference to use canonical Step 4.5",
+        "hash": "pending"
+      },
       {
         "type": "feat",
         "scope": "schemas",

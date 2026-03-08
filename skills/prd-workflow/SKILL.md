@@ -241,7 +241,7 @@ Stories: {total count}
   US-003: {description}
   ...
 
-Pipeline per story: implement → test-flow → auto-commit
+Pipeline per story: implement → test-flow → commit → postChangeActions
 
 [G] Go — start executing stories
 [F] Show implementation flow chart
@@ -346,9 +346,9 @@ For each story in priority order:
                Report and ask user
    ```
 
-2. **Post-change actions** run automatically after commit (see `test-flow` → Section 5.5):
+2. **Post-change actions** run automatically after commit (see `builder.md` → Story Processing Pipeline → Step 4.5, and `test-flow` → Section 5.5):
    - `postChangeActions` in `project.json` defines downstream propagation (support articles, AI tools, marketing pages, pending updates)
-   - These fire after the per-story commit in Step 2.5, not during the quality pipeline
+   - These fire after the per-story commit in Step 2.5 as part of Pipeline Step 4.5, not during the quality pipeline
    - No story-level flags needed — trigger conditions in `postChangeActions` determine what runs
 
 3. **Update heartbeat** periodically in session lock
