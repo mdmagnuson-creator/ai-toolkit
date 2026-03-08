@@ -196,6 +196,15 @@
       "completedAt": "2026-03-08",
       "stories": 6,
       "notes": "Adds apps.desktop.buildDeploy schema section so test-flow can automate build → kill → copy → relaunch for Electron projects. Creates dedicated electron-build-deploy skill with explicit command sequence to prevent Builder from skipping deploy steps. macOS only for v1."
+    },
+    {
+      "id": "prd-proactive-context-management",
+      "title": "Proactive Context Management with Persistent Session Logs",
+      "status": "ready",
+      "filePath": "docs/prds/prd-proactive-context-management.md",
+      "createdAt": "2026-03-08",
+      "stories": 5,
+      "notes": "Replaces builder-state.json with persistent session logs. Builder works story-by-story automatically, shedding context between chunks. Session logs committed to git for cross-machine resume. Completed sessions archived to docs/sessions/archive/."
     }
   ]
 }
