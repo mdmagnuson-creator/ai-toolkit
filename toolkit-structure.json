@@ -1007,7 +1007,7 @@
         "type": "feat",
         "scope": "agents",
         "description": "add session log git integration section to builder — cross-machine resume, active session housekeeping, commit strategy (US-005)",
-        "hash": "pending"
+        "hash": "ff6cfd3"
       },
       {
         "type": "feat",
