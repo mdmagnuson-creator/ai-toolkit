@@ -13,7 +13,7 @@
 
 ## Applicable Agents
 
-- **builder** — uses `docs/builder-state.json`
+- **builder** — uses `docs/sessions/{id}/session.json` (see `session-log` skill for full details)
 - **planner** — uses `docs/planner-state.json`
 - **toolkit** — uses `~/.config/opencode/.tmp/toolkit-state.json`
 
@@ -25,27 +25,29 @@ Each agent uses its own state file:
 
 | Agent | State File |
 |-------|------------|
-| builder | `<project>/docs/builder-state.json` |
+| builder | `<project>/docs/sessions/{id}/session.json` (committed to git) + `<project>/docs/builder-config.json` (gitignored, machine-local) |
 | planner | `<project>/docs/planner-state.json` |
 | toolkit | `~/.config/opencode/.tmp/toolkit-state.json` |
+
+> **Builder note:** Builder's state has been split into two files. `session.json` holds the session log (committed to git for cross-machine resume). `builder-config.json` holds machine-specific data (`availableCLIs`, `projectContext`, `lastSessionPath`). See the `session-log` skill for full details.
 
 ---
 
 ## Common State Structure
 
-All agents share this core structure:
+Planner and toolkit share this core structure:
 
 ```json
 {
   "uiTodos": {
-    "flow": "prd|adhoc|updates|e2e|draft|...",
+    "flow": "draft|adhoc|updates|...",
     "lastSyncedAt": "2026-02-28T10:00:00Z",
     "items": [
       {
         "content": "Task description",
         "status": "pending|in_progress|completed|cancelled",
         "priority": "high|medium|low",
-        "flow": "prd|adhoc|updates|...",
+        "flow": "draft|adhoc|updates|...",
         "refId": "US-001|adhoc-001|filename.md|..."
       }
     ]
@@ -60,11 +62,15 @@ All agents share this core structure:
 }
 ```
 
+> **Builder uses a different structure.** Builder's `session.json` uses `currentAction` (not `currentTask`) and derives todos from `chunks[]` (no separate `uiTodos`). See the `session-log` skill for Builder's state structure.
+
 ---
 
 ## Right-Panel Todo Contract
 
 Keep OpenCode right-panel todos and state file synchronized for resumability.
+
+> **Builder exception:** Builder derives todos from `session.json` → `chunks[]` instead of a separate `uiTodos` store. The contract below applies to planner and toolkit; Builder follows the `session-log` skill.
 
 ### Required Behavior
 
@@ -130,6 +136,8 @@ Rate limit detected at: [currentTask.rateLimitDetectedAt]
 
 Track `currentTask` so work can resume after context compaction or rate limiting.
 
+> **Builder uses `currentAction`** (in `session.json`) instead of `currentTask`. Same purpose, different field name. See `session-log` skill.
+
 ### Required Behavior
 
 | Event | Action |
@@ -188,10 +196,12 @@ If no `currentTask`, proceed to normal welcome/menu flow.
 
 ### Builder Flows
 
+> Builder todos are derived from `session.json` → `chunks[]`. Each chunk = one todo.
+
 | Flow | Todo Granularity | Completion Condition |
 |------|------------------|----------------------|
-| `prd` | One per story (`US-001`) | Story implemented, checks pass |
-| `adhoc` | One per user task | Task completed by @developer |
+| `prd` | One per chunk (story) | Story implemented, checks pass |
+| `adhoc` | One per chunk (task) | Task completed by @developer |
 | `updates` | One per update file | Update applied or skipped |
 | `e2e` | One per E2E file | Test passed or skipped |
 

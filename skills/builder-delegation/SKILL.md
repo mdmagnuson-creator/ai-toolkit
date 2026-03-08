@@ -195,8 +195,8 @@ By embedding the canonical content directly, Developer has the exact text in its
 **Before delegating to @developer, ALWAYS run this check:**
 
 ```bash
-# Read analysis gate status from state file
-ANALYSIS_COMPLETED=$(jq -r '.activeTask.analysisCompleted // false' docs/builder-state.json 2>/dev/null)
+# Read analysis gate status from session.json
+ANALYSIS_COMPLETED=$(jq -r '.currentAction.analysisCompleted // false' docs/sessions/current/session.json 2>/dev/null)
 echo "Analysis gate check: analysisCompleted=$ANALYSIS_COMPLETED"
 ```
 
@@ -206,14 +206,14 @@ echo "Analysis gate check: analysisCompleted=$ANALYSIS_COMPLETED"
 |---------------------|--------|
 | `true` | ✅ Proceed with delegation |
 | `false` or missing | ⛔ STOP — must show ANALYSIS COMPLETE dashboard and get [G] first |
-| File doesn't exist | ⛔ STOP — initialize state file, then show analysis dashboard |
+| File doesn't exist | ⛔ STOP — initialize session, then show analysis dashboard |
 
 **If check fails:**
 
 1. Do NOT proceed with delegation
 2. Output: `"⛔ Analysis gate not passed. Must show ANALYSIS COMPLETE dashboard and receive [G] before delegating."`
 3. Run Phase 0 from `adhoc-workflow` skill
-4. After receiving [G], update state: `activeTask.analysisCompleted: true`
+4. After receiving [G], update state: `currentAction.analysisCompleted: true` in `session.json`
 5. Re-run the check (should now pass)
 
 **Logging requirement:**

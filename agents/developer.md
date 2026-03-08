@@ -182,14 +182,14 @@ Load the `session-setup` skill to initialize session coordination:
 >
 > State updates that happen after the commit will be lost if the session ends.
 >
-> **Failure behavior:** If you find yourself about to run `git commit` without first updating `docs/prd.json` (`passes: true`), `docs/builder-state.json`, and `docs/prd-registry.json` — STOP and update those files before committing.
+> **Failure behavior:** If you find yourself about to run `git commit` without first updating `docs/prd.json` (`passes: true`), `session.json`, and `docs/prd-registry.json` — STOP and update those files before committing.
 
 1. **Update PRD:** set `passes: true` for the completed story in `docs/prd.json`
 
-2. **Update builder-state.json:**
-   - Move story from `storiesPending` to `storiesCompleted`
-   - Clear `currentStory` (or set to next story)
-   - Update `uiTodos.items` to mark story `completed`
+2. **Update session state:**
+   - Update current chunk status in `session.json` → `chunks[]`
+   - Update `chunk.json` with completion details
+   - Right-panel todos are derived from `session.json` chunks (no separate update needed)
 
 3. **Update prd-registry.json:**
    - Update `currentStory` field to reflect progress
@@ -251,7 +251,7 @@ Load the `session-setup` skill to initialize session coordination:
    - If `onStoryComplete` (default) or `true`: Proceed with commit
    
    ```bash
-   git add -A  # includes prd.json, builder-state.json, prd-registry.json
+   git add -A  # includes prd.json, session.json, chunk.json, prd-registry.json
    git commit -m "feat: [Story ID] - [Story Title]"
    ```
 
@@ -272,7 +272,7 @@ Load the `session-setup` skill to initialize session coordination:
    
    **Verify state files are staged:**
    - `docs/prd.json` — story `passes: true`
-   - `docs/builder-state.json` — updated story status
+   - `session.json` + `chunk.json` — updated session/chunk status
    - `docs/prd-registry.json` — updated progress
 
 ### Phase 3B: Update Project Capabilities

@@ -69,7 +69,7 @@ After 3 retries exhausted:
 
 When a specialist fails with non-transient error:
 
-1. **Create checkpoint** (per builder-state skill)
+1. **Create checkpoint** (per session-log skill)
 2. **Look up fallback chain** for task type
 3. **Find next alternative** not already tried
 4. **Show status:**
@@ -77,7 +77,7 @@ When a specialist fails with non-transient error:
    ⟳ Switching to go-tester (react-tester failed: verification failed)
    ```
 5. **Delegate to alternative** with checkpoint in prompt
-6. **Record attempt** in `builder-state.json → reassignment.attempts[]`
+6. **Record attempt** in `chunk.json` → `reassignment.attempts[]`
 
 Try ALL alternatives in the chain before escalating.
 
@@ -85,7 +85,7 @@ Try ALL alternatives in the chain before escalating.
 
 ## Reassignment State
 
-Track reassignment attempts in `builder-state.json`:
+Track reassignment attempts in `chunk.json`:
 
 ```json
 {
@@ -103,7 +103,7 @@ Track reassignment attempts in `builder-state.json`:
         "retryCount": 0
       }
     ],
-    "checkpointRef": "activeWork.checkpoint"
+    "checkpointRef": "chunk.checkpoint"
   }
 }
 ```

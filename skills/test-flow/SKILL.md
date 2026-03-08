@@ -470,11 +470,11 @@ When `taskType` is `ops-only`:
 
 ### Verification Contract Integration
 
-When `builder-state.json` contains a `verificationContract`, use it to guide verification:
+When the current chunk's `chunk.json` contains a `verification.contract`, use it to guide verification:
 
-> ⛔ **Staleness check (MANDATORY):** Before using the contract, verify it belongs to the current story.
-> Compare `verificationContract.generatedAt` against `activeWork.stories[currentStoryIndex]` start time.
-> If the contract predates the current story (or `verificationContract` is `null`), treat it as **no contract** and fall through to the default activity resolution (Section 2).
+> ⛔ **Staleness check (MANDATORY):** Before using the contract, verify it belongs to the current chunk.
+> Compare `verification.contract.generatedAt` against the chunk's `startedAt` time.
+> If the contract predates the current chunk (or `verification.contract` is `null`), treat it as **no contract** and fall through to the default activity resolution (Section 2).
 > This prevents stale contracts from previous tasks causing verification skips.
 
 | Contract Criterion | Test Activity | Execution |
@@ -485,13 +485,13 @@ When `builder-state.json` contains a `verificationContract`, use it to guide ver
 | `activity: "e2e"` | E2E test generation + run | @ui-tester-playwright |
 | `activity: "critic"` | Code review | @critic |
 
-**Recording verification results:**
+**Recording verification results** (in `chunk.json` → `verification`):
 
 ```json
 {
-  "verificationResults": {
-    "overall": "pass",
-    "criteria": [
+  "verification": {
+    "status": "pass",
+    "results": [
       { "activity": "typecheck", "status": "pass" },
       { "activity": "lint", "status": "pass" },
       { "activity": "unit-test", "status": "pass", "attempts": 1 },

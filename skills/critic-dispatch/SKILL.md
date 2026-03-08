@@ -102,7 +102,7 @@ When running @critic:
    - Address blocking issues before continuing
    - Log advisory issues for later
 
-3. **Track in builder-state.json:**
+3. **Track in `chunk.json`:**
    ```json
    {
      "lastCriticRun": {

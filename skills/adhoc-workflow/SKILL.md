@@ -168,30 +168,28 @@ Task Specs follow the **same lifecycle as PRDs** but in a parallel folder struct
 >
 > This ensures the analysis gate is enforced even after context compaction.
 
-**Immediately on entering ad-hoc mode, write to `builder-state.json`:**
+**Immediately on entering ad-hoc mode, initialize the session:**
+
+1. Create session directory: `docs/sessions/{timestamp}-adhoc/`
+2. Write `session.json`:
 
 ```json
 {
-  "activeWork": {
-    "mode": "adhoc",
-    "source": { "taskId": null },
-    "analysisCompleted": false,
-    "probeStatus": null,
-    "stories": [],
-    "currentStoryIndex": 0,
-    "resolvedActivities": [],
-    "implementationDecisions": [],
-    "enteredAt": "2026-03-03T10:30:00Z"
-  },
-  "verificationContract": null,
-  "verificationResults": null,
-  "pendingTests": {}
+  "id": "{timestamp}-adhoc",
+  "mode": "adhoc",
+  "source": { "taskId": null },
+  "analysisCompleted": false,
+  "probeStatus": null,
+  "chunks": [],
+  "currentChunk": null,
+  "implementationDecisions": [],
+  "startedAt": "2026-03-03T10:30:00Z",
+  "status": "active",
+  "currentAction": null
 }
 ```
 
-> ⛔ **CRITICAL: The top-level verification fields (`verificationContract`, `verificationResults`, `pendingTests`) MUST be reset here.**
-> These fields live OUTSIDE `activeWork` and are NOT cleared when `activeWork` is cleared.
-> If stale values survive from a previous task, test-flow may read an old `verificationContract`
+> Per-chunk verification isolation: each chunk has its own `verification` object in `chunk.json`. No top-level verification state to reset.
 > (e.g., `type: "advisory"` or `type: "skip"`) and skip real verification for the new task.
 
 **Why this matters:**
@@ -317,7 +315,7 @@ If analysis times out, show what was found with note: "⚠️ Analysis may be in
 > These "ops-only" tasks can still have **runtime impact** that requires browser verification.
 >
 > **Trigger:** After Step 0.1 analysis completes.
-> **Evidence:** `taskType` written to `builder-state.json` → `activeWork.taskType`.
+> **Evidence:** `taskType` written to `session.json` → `taskType`.
 > **Failure behavior:** If task type is not classified, default to `source-change` (safest path).
 
 **Classification rules:**
@@ -355,16 +353,14 @@ Ask: "Was the user's original issue visible in the browser or app UI?"
 | Secret rotation (internal) | No | Rotating API keys for monitoring service |
 | Log config change | No | Changing log levels, no user impact |
 
-**Write classification to `builder-state.json`:**
+**Write classification to `session.json`:**
 
 ```json
 {
-  "activeWork": {
-    "taskType": "ops-with-runtime-impact",
-    "runtimeImpact": "GitHub OAuth flow fails — edge function not deployed",
-    "opsCommands": ["supabase secrets set", "supabase functions deploy"],
-    "verificationTarget": "Authenticate, open org creation wizard, click Connect GitHub — verify OAuth URL returned"
-  }
+  "taskType": "ops-with-runtime-impact",
+  "runtimeImpact": "GitHub OAuth flow fails — edge function not deployed",
+  "opsCommands": ["supabase secrets set", "supabase functions deploy"],
+  "verificationTarget": "Authenticate, open org creation wizard, click Connect GitHub — verify OAuth URL returned"
 }
 ```
 
@@ -685,7 +681,7 @@ Skip decision detection entirely — proceed directly to Step 0.1d — when the 
 
 **Skip detection is autonomous** — Builder infers whether meaningful implementation decisions exist based on the request and analysis. There is no hardcoded list of "decision-rich" patterns.
 
-**When skipped:** No user-visible output. Flow proceeds directly from 0.1b to 0.1d. Record `implementationDecisions: null` in `builder-state.json` → `activeWork`.
+**When skipped:** No user-visible output. Flow proceeds directly from 0.1b to 0.1d. Record `implementationDecisions: null` in `session.json`.
 
 #### When to Detect Decisions
 
@@ -760,23 +756,22 @@ Run decision detection when the request involves:
 
 5. **Prioritize by implementation impact** — rank decisions by how much rework a wrong choice would cause. Keep only the highest-impact decisions (maximum 5). Request-specific questions are ranked first; consideration-sourced questions fill remaining slots.
 
-5. **Store detection results** in `builder-state.json`:
+5. **Store detection results** in `session.json`:
 
 ```json
 {
-  "activeWork": {
-    "implementationDecisions": {
-      "detected": true,
-      "decisions": [
-        {
-          "id": "state-persistence",
-          "question": "Should wizard state persist so users can leave and resume later?",
-          "options": [
-            {"code": "A", "label": "Yes — save progress to localStorage/DB", "description": "Users can close the browser and resume later"},
-            {"code": "B", "label": "No — reset on page leave", "description": "Simpler implementation, wizard restarts if user navigates away"}
-          ],
-          "userChoice": null,
-          "source": "inferred"
+  "implementationDecisions": {
+    "detected": true,
+    "decisions": [
+      {
+        "id": "state-persistence",
+        "question": "Should wizard state persist so users can leave and resume later?",
+        "options": [
+          {"code": "A", "label": "Yes — save progress to localStorage/DB", "description": "Users can close the browser and resume later"},
+          {"code": "B", "label": "No — reset on page leave", "description": "Simpler implementation, wizard restarts if user navigates away"}
+        ],
+        "userChoice": null,
+        "source": "inferred"
         }
       ]
     }
@@ -784,13 +779,11 @@ Run decision detection when the request involves:
 }
 ```
 
-If no decisions detected (or all were skipped), record:
+If no decisions detected (or all were skipped), record in `session.json`:
 
 ```json
 {
-  "activeWork": {
-    "implementationDecisions": null
-  }
+  "implementationDecisions": null
 }
 ```
 
@@ -844,7 +837,7 @@ Type "you decide" to let me choose based on best practices.
 **After user responds:**
 
 1. **Parse answers** — letter codes or freeform descriptions
-2. **Store choices** in `builder-state.json` → `activeWork.implementationDecisions.decisions[].userChoice`
+2. **Store choices** in `session.json` → `implementationDecisions.decisions[].userChoice`
 3. **If "you decide"** — Builder selects best-practice defaults and records its choices with brief rationale
 4. **Proceed to Step 0.1d** with decisions resolved
 
@@ -1380,7 +1373,7 @@ during form submission, disabled state to prevent double-submit.
 3. **Move to ready and start:**
    - Move file from `docs/tasks/drafts/` to `docs/tasks/`
    - Update status to `ready` in registry
-   - Update `builder-state.json` with `activeWork` and **set `analysisCompleted: true`**
+   - Update `session.json` with **`analysisCompleted: true`**
    - Proceed to Phase 1
 
 > ⚠️ **CRITICAL: Only set `analysisCompleted: true` after user responds with [G] Go ahead.**
@@ -1394,39 +1387,30 @@ during form submission, disabled state to prevent double-submit.
 
 ### Step 1.0: Setup State
 
-Update `builder-state.json`:
+Update `session.json` with chunks and set `analysisCompleted: true`:
 
 ```json
 {
-  "activeWork": {
-    "mode": "adhoc",
-    "source": { "taskId": "task-2026-03-01-add-spinner" },
-    "stories": [
-      { "id": "TSK-001", "description": "Add loading state", "status": "in_progress" },
-      { "id": "TSK-002", "description": "Show Spinner", "status": "pending" },
-      { "id": "TSK-003", "description": "Disable button", "status": "pending" },
-      { "id": "TSK-004", "description": "Add unit tests", "status": "pending" }
-    ],
-    "currentStoryIndex": 0,
-    "analysisCompleted": true
-  },
-  "uiTodos": {
-    "items": [
-      {"content": "TSK-001: Add loading state", "status": "in_progress", "priority": "high"},
-      {"content": "TSK-002: Show Spinner", "status": "pending", "priority": "high"},
-      {"content": "TSK-003: Disable button", "status": "pending", "priority": "high"},
-      {"content": "TSK-004: Add unit tests", "status": "pending", "priority": "high"}
-    ],
-    "flow": "task"
-  }
+  "mode": "adhoc",
+  "source": { "taskId": "task-2026-03-01-add-spinner" },
+  "chunks": [
+    { "id": "TSK-001-01-add-loading-state", "storyId": "TSK-001", "description": "Add loading state", "status": "in_progress" },
+    { "id": "TSK-002-01-show-spinner", "storyId": "TSK-002", "description": "Show Spinner", "status": "pending" },
+    { "id": "TSK-003-01-disable-button", "storyId": "TSK-003", "description": "Disable button", "status": "pending" },
+    { "id": "TSK-004-01-add-unit-tests", "storyId": "TSK-004", "description": "Add unit tests", "status": "pending" }
+  ],
+  "currentChunk": "TSK-001-01-add-loading-state",
+  "analysisCompleted": true
 }
 ```
 
-> ⛔ **Before ANY @developer delegation, verify `activeWork.analysisCompleted === true`.**
+Create chunk folders for each chunk and initialize `chunk.json` in each.
+
+> ⛔ **Before ANY @developer delegation, verify `session.json` → `analysisCompleted === true`.**
 >
 > If not true, STOP and show the analysis dashboard first.
 
-Update right panel todos via `todowrite` to match.
+Right-panel todos are derived from `session.json` → `chunks[]`. Update right panel via `todowrite` to match chunks.
 
 ---
 
@@ -1440,7 +1424,7 @@ Update right panel todos via `todowrite` to match.
 >
 > **Ad-hoc context to pass:**
 > - `mode: "adhoc"` — 3-attempt retry strategy (vs PRD's 5-attempt)
-> - `taskId` and `storyId` from `builder-state.json` → `activeWork`
+> - `taskId` and `storyId` from `session.json`
 > - `taskSpecPath` for acceptance criteria reference
 >
 > **Failure behavior:** If any check fails after 3 fix attempts, STOP and report to user.
@@ -1522,7 +1506,7 @@ Requirements:
 > | `ops-with-runtime-impact` | Skip typecheck/lint/test/rebuild → run Playwright only against `verificationTarget` |
 > | `ops-only` | Skip all checks → mark complete |
 >
-> **Trigger:** After ops commands complete, load `test-flow` with taskType context from `builder-state.json`.
+> **Trigger:** After ops commands complete, load `test-flow` with taskType context from `session.json`.
 > test-flow reads `verificationTarget` and writes/runs targeted Playwright tests for `ops-with-runtime-impact` tasks.
 >
 > **Failure behavior:** If Builder completes ops commands and declares "done" without running test-flow, the task is NOT verified.
@@ -1614,19 +1598,19 @@ When user says "add a task to handle X after US-002" during active PRD work:
 
 Insert after the specified story (US-002 in this example).
 
-### Step 3: Update Builder State
+### Step 3: Update Session State
+
+Update `session.json` to track the injected task as a new chunk:
 
 ```json
 {
-  "activeWork": {
-    "mode": "prd",
-    "source": { "prdId": "prd-user-settings" },
-    "stories": [
-      { "id": "US-002", "status": "in_progress" }
-    ],
-    "currentStoryIndex": 0,
-    "injectedTasks": ["TSK-001"]
-  }
+  "mode": "prd",
+  "prdId": "prd-user-settings",
+  "chunks": [
+    { "id": "US-002-01-user-settings", "storyId": "US-002", "status": "in_progress" }
+  ],
+  "currentChunk": "US-002-01-user-settings",
+  "injectedTasks": ["TSK-001"]
 }
 ```
 
@@ -1727,7 +1711,7 @@ Add visual loading feedback to SubmitButton component:
 | Verification Status | ✅ Yes | Per-story: verified / skipped / not-required |
 | Screenshots Captured | ✅ Yes | Paths to any screenshots taken (empty if none) |
 | Commits Made | ✅ Yes | Git log for this task (hash + message) |
-| Time Taken | ✅ Yes | From activeWork.source.startedAt to now |
+| Time Taken | ✅ Yes | From session.json `startedAt` to now |
 
 ### Step 2: Archive Task Spec
 
@@ -1744,8 +1728,7 @@ Add visual loading feedback to SubmitButton component:
 **Summary:** Added loading spinner to SubmitButton with isLoading prop, Spinner component, and disabled state during submission.
 ```
 
-4. Clear `activeWork` from `builder-state.json`
-5. **Reset top-level verification state** — set `verificationContract: null`, `verificationResults: null`, `pendingTests: {}`
+4. Archive session to `docs/sessions/archive/`
 
 ---
 
@@ -1777,9 +1760,8 @@ Revert uncommitted changes?
 1. If [Y]: `git checkout -- .` to discard uncommitted changes
 2. Move Task Spec to `docs/tasks/abandoned/`
 3. Update registry with `status: abandoned`, `abandonedAt`, `abandonReason`
-4. Clear `activeWork` from `builder-state.json`
-5. **Reset top-level verification state** — set `verificationContract: null`, `verificationResults: null`, `pendingTests: {}`
-6. Notify: "Task abandoned. You can resume later with `resume task-2026-03-01-add-spinner`"
+4. Archive session to `docs/sessions/archive/` with status `abandoned`
+5. Notify: "Task abandoned. You can resume later with `resume task-2026-03-01-add-spinner`"
 
 ### Resuming Abandoned Task:
 
@@ -1787,8 +1769,8 @@ When user says "resume task-2026-03-01-add-spinner":
 
 1. Move Task Spec from `docs/tasks/abandoned/` to `docs/tasks/`
 2. Update registry with `status: in_progress`
-3. Update `activeWork` in `builder-state.json`
-4. Resume from first incomplete story
+3. Restore session from `docs/sessions/archive/` back to `docs/sessions/`
+4. Resume from first incomplete chunk
 
 ---
 
@@ -1877,9 +1859,8 @@ Completed work (2 stories):
 ### Step 3: Update State
 
 1. Update Task Spec registry: `status: promoted`, `promotedTo: null` (set when PRD created)
-2. Clear `activeWork` from `builder-state.json`
-3. **Reset top-level verification state** — set `verificationContract: null`, `verificationResults: null`, `pendingTests: {}`
-4. Notify: "Promotion request created. Run @planner to continue."
+2. Archive session to `docs/sessions/archive/` with status `promoted`
+3. Notify: "Promotion request created. Run @planner to continue."
 
 ---
 
@@ -1967,12 +1948,9 @@ Task-Spec: task-2026-03-01-add-spinner"
 
 1. Clear test checkpoints
 2. Archive Task Spec to `docs/tasks/completed/`
-3. Clear `activeWork` from `builder-state.json`
-4. **Reset top-level verification state** — set `verificationContract: null`, `verificationResults: null`, `pendingTests: {}` in `builder-state.json`
+3. Archive session to `docs/sessions/archive/`
 
-> ⛔ **Step 4 is MANDATORY.** These fields live outside `activeWork` and are NOT cleared by Step 3.
-> Without this reset, the next ad-hoc task inherits stale verification state and test-flow may
-> skip real verification (e.g., stale `verificationContract.type: "advisory"` causes full skip).
+> Per-chunk verification isolation eliminates the need for manual verification state resets between tasks.
 
 ---
 

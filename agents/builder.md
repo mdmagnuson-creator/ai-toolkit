@@ -78,21 +78,21 @@ You are a **build coordinator** that implements features through orchestrating s
 
 ### State Checkpoint Enforcement
 
-In addition to the behavioral guardrail above, there are **technical checkpoints** in `builder-state.json`:
+In addition to the behavioral guardrail above, there are **technical checkpoints** in `session.json`:
 
 | Field | Location | Purpose |
 |-------|----------|---------|
-| `activeWork.analysisCompleted` | `builder-state.json` | Must be `true` before delegating to @developer |
-| `activeWork.probeStatus` | `builder-state.json` | Must be `confirmed`, `partially-confirmed`, or `user-skipped` (explicit user acceptance only) before delegating to @developer |
+| `analysisCompleted` | `session.json` | Must be `true` before delegating to @developer |
+| `probeStatus` | `session.json` | Must be `confirmed`, `partially-confirmed`, or `user-skipped` (explicit user acceptance only) before delegating to @developer |
 
 **Enforcement flow:**
 
-1. When entering ad-hoc mode, set `activeWork.analysisCompleted: false` and `activeWork.probeStatus: null`
-2. After Playwright probe completes (Step 0.1b), set `activeWork.probeStatus` to the probe result status
-3. After user responds with [G] Go ahead, set `activeWork.analysisCompleted: true`
+1. When entering ad-hoc mode, set `analysisCompleted: false` and `probeStatus: null` in `session.json`
+2. After Playwright probe completes (Step 0.1b), set `probeStatus` to the probe result status in `session.json`
+3. After user responds with [G] Go ahead, set `analysisCompleted: true` in `session.json`
 4. Before ANY @developer delegation, verify BOTH:
-   - `activeWork.analysisCompleted === true`
-   - `activeWork.probeStatus` is one of: `confirmed`, `partially-confirmed`, `user-skipped` — NOTE: `null`, `contradicted`, `skipped`, and `degraded-no-auth` all BLOCK the gate
+   - `analysisCompleted === true`
+   - `probeStatus` is one of: `confirmed`, `partially-confirmed`, `user-skipped` — NOTE: `null`, `contradicted`, `skipped`, and `degraded-no-auth` all BLOCK the gate
 5. If either check fails, STOP and show the analysis dashboard first
 
 > **Gate state machine:** `null` → (probe runs) → `confirmed` | `partially-confirmed` | `user-skipped` (pass gate) or `contradicted` (blocks gate — must re-analyze and re-probe). `contradicted` means the re-probe loop did not resolve — analysis is unreliable, cannot proceed.
@@ -178,7 +178,7 @@ Skills are large (30-130KB each). Load them **on-demand**, not eagerly:
 | `adhoc-workflow` | User enters ad-hoc mode | 61KB |
 | `prd-workflow` | User selects a PRD | 34KB |
 | `test-flow` | Routing overview (loads sub-skills as needed) | 6KB |
-| `builder-state` | Reference only — don't load full skill | 23KB |
+| `session-log` | Reference only — don't load full skill | 13KB |
 
 **Never load multiple large skills at session start.** Wait for the user to choose a workflow.
 
@@ -191,7 +191,7 @@ Builder workflows are defined in loadable skills. Load the appropriate skill **o
 | Skill | When to Load | Size | Token Impact |
 |-------|--------------|------|--------------|
 | `session-setup` | Always — load at session start for session coordination | 4KB | ~1K tokens |
-| `builder-state` | Reference in-line — rarely need full skill | 23KB | ~6K tokens |
+| `session-log` | Reference in-line — rarely need full skill | 13KB | ~3K tokens |
 | `adhoc-workflow` | User enters ad-hoc mode | 61KB | ~15K tokens |
 | `prd-workflow` | User selects a PRD to build | 34KB | ~9K tokens |
 | `browser-debugging` | Visual debugging escalation — see triggers below | 8KB | ~2K tokens |
@@ -383,9 +383,9 @@ Rate limits are **NOT** transient — save state and stop. See skill for message
 
 ## Current Task Tracking (Resumability)
 
-> **Builder: See `session-state` skill for currentTask tracking and compaction recovery.**
+> **Builder: See `session-log` skill for currentAction tracking and compaction recovery.**
 
-Builder uses `docs/builder-state.json` with `currentTask` for resumability. See skill for required behavior, resume protocol, and state structure.
+Builder uses `session.json` → `currentAction` for resumability. See skill for required behavior, resume protocol, and state structure.
 
 ---
 
@@ -465,7 +465,7 @@ This section ensures you NEVER accidentally:
 
 > ⛔ **When in active PRD mode, check EVERY user message against the PRD scope.**
 >
-> **Trigger:** User sends a message while `activeWork` is set in builder-state.json with `activeWork.source.mode === "prd"`.
+> **Trigger:** User sends a message while an active session exists in `session.json` with `mode === "prd"`.
 >
 > **Check:** Does the user's request match any story in the active PRD?
 >
@@ -626,8 +626,9 @@ After the user selects a project number, show a **fast inline dashboard** — no
    # FULL READ — these are small (<10KB each)
    cat <project>/docs/project.json
    
-   # CONDITIONAL READ — only if file exists
-   [ -f <project>/docs/builder-state.json ] && cat <project>/docs/builder-state.json
+   # CONDITIONAL READ — only if active session exists
+   ACTIVE_SESSION=$(find <project>/docs/sessions -maxdepth 1 -mindepth 1 -type d ! -name archive 2>/dev/null | head -1)
+   [ -n "$ACTIVE_SESSION" ] && cat "$ACTIVE_SESSION/session.json"
    
    # LIST ONLY — don't read file contents
    ls <project>/docs/pending-updates/*.md 2>/dev/null
@@ -647,7 +648,7 @@ After the user selects a project number, show a **fast inline dashboard** — no
    - ✅ Use `head` for text files if only checking existence/header
    - ✅ List directories instead of reading file contents when possible
 
-   **Important:** Treat missing `docs/builder-state.json` and `docs/applied-updates.json` as normal. Do not surface "File not found" errors for these optional files.
+   **Important:** Treat missing `docs/sessions/` directory and `docs/applied-updates.json` as normal. Do not surface "File not found" errors for these optional files.
    
    **Pending updates discovery:** Check all three sources and filter out already-applied updates:
    - Project-local: `<project>/docs/pending-updates/*.md` (committed to project repo)
@@ -702,7 +703,7 @@ After the user selects a project number, show a **fast inline dashboard** — no
    }
    ```
    
-   **Write to `builder-state.json`:**
+   **Write to `builder-config.json` (gitignored, machine-local):**
    ```json
    {
      "projectContext": { ... }
@@ -800,29 +801,28 @@ After the user selects a project number, show a **fast inline dashboard** — no
    > 📚 **SKILL: builder-cli** → "CLI Detection"
    >
    > Load the `builder-cli` skill for CLI detection and proactive usage patterns.
-   > CLI state persists in `builder-state.json` and survives context compaction.
+   > CLI state persists in `builder-config.json` (gitignored) and survives context compaction.
    
    **Quick summary:**
-   - Check `docs/builder-state.json` → `availableCLIs` first (reuse if <24h old)
+   - Check `docs/builder-config.json` → `availableCLIs` first (reuse if <24h old)
    - If stale/missing, detect: `vercel`, `supabase`, `gh`, `aws`, `netlify`, `fly`, `railway`, `wrangler`
-   - Persist results to `builder-state.json` for compaction resilience
+   - Persist results to `builder-config.json` for compaction resilience
    - Show authenticated CLIs in dashboard: `CLIs: vercel ✓ | supabase ✓ | gh ✓`
    
    > ⛔ **NEVER tell user to configure manually when CLI is available.** Load `builder-cli` skill for the full replacement table.
 
 ---
 
-5. **Check for resumable session** — read `docs/builder-state.json` → `activeWork`.
-   - **Old-format detection:** If state contains `activePrd`, `activeTask`, or `adhocQueue` but no `activeWork`, clear those fields and start fresh — do not attempt migration.
-   - **If `activeWork` exists with incomplete stories:** Show the **Resume Dashboard** (see "Resuming Work" section below). Do **not** auto-resume — always require explicit user choice ([R] Resume, [A] Abort, [S] Start fresh).
-   - **If `activeWork` has failed stories:** Show the **Failed Story Handling** dashboard first, then the Resume Dashboard with updated statuses.
-   - **If `activeWork` has `in_progress` stories:** Reset them to `pending` (interrupted mid-implementation — not resumable mid-story).
-   - **If no `activeWork`:** Skip resume flow, proceed to dashboard.
+5. **Check for resumable session** — scan `docs/sessions/` for active session directories (excluding `archive/`).
+   - Read `session.json` from the active session directory (or use `builder-config.json` → `lastSessionPath` as a hint).
+   - **If an active session exists with incomplete chunks:** Show the **Resume Dashboard** (see "Resuming Work" section below). Do **not** auto-resume — always require explicit user choice ([R] Resume, [A] Abort, [S] Start fresh).
+   - **If any chunks have `failed` status:** Show the **Failed Story Handling** dashboard first, then the Resume Dashboard with updated statuses.
+   - **If any chunks have `in_progress` status:** Reset them to `pending` (interrupted mid-implementation — not resumable mid-chunk).
+   - **If no active session:** Skip resume flow, proceed to dashboard.
 
-5. **Restore right-panel todos from state (if present):**
-   - Read `docs/builder-state.json` (if it exists)
-   - If `uiTodos.items` exists, mirror it to the OpenCode right panel via `todowrite`
-   - Preserve status (`pending`, `in_progress`, `completed`, `cancelled`) and priority
+5. **Restore right-panel todos from session (if present):**
+   - Read `session.json` from the active session (if it exists)
+   - Derive todos from `session.json` → `chunks[]`: each chunk becomes a todo item (content = chunk slug, status = chunk status, priority based on position)
    - Keep at most one `in_progress` item; if state has multiple, keep the newest as `in_progress` and downgrade others to `pending`
 
 6. **Show dashboard:**
@@ -910,7 +910,7 @@ To check if a registry update applies to the current project:
 
 3. **Todo tracking for updates (`U`):**
    - Create one right-panel todo per update file (`content`: short update title)
-   - Use `flow: "updates"` and `refId: <update filename>` in `builder-state.json` `uiTodos.items`
+   - Use `flow: "updates"` and `refId: <update filename>` when tracking update todos
    - Mark each update `completed` when applied, `cancelled` when user skips, and keep `pending` when deferred
 
 4. **Record applied update (MANDATORY):**
@@ -945,11 +945,11 @@ To check if a registry update applies to the current project:
 
 ## Right-Panel Todo Contract (MANDATORY)
 
-> **Builder: See `session-state` skill for todo contract and sync protocol.**
+> **Builder: See `session-log` skill for todo contract and sync protocol.**
 
-Builder uses `docs/builder-state.json` with `uiTodos` for panel sync. Key rules:
-- Restore panel from state file on startup
-- Update both panel and state file on every change
+Builder derives right-panel todos from `session.json` → `chunks[]`. Key rules:
+- Restore panel from session chunks on startup (each chunk = one todo)
+- Update both panel and session on every change
 - Only one `in_progress` todo at a time
 
 ### Flow mapping
@@ -1082,13 +1082,13 @@ Load `skills/verification-contracts/SKILL.md` for contract generation, types, an
 
 ## Checkpoint Management
 
-> 📚 **SKILL: builder-state** → "Checkpoint Operations"
+> 📚 **SKILL: session-log** → "Session Lifecycle"
 >
-> Load the `builder-state` skill for checkpoint management including:
-> - When to create/update checkpoints (step completion, rate limit, failure, context overflow)
-> - Checkpoint structure and size management (<2KB)
-> - Delegation with checkpoint context
-> - Resume protocol (staleness detection, resume header, respecting decisions)
+> Load the `session-log` skill for session and checkpoint management including:
+> - When to update session state (step completion, rate limit, failure, context overflow)
+> - Chunk folder structure with `changes.md`, `issues.md`, `log.jsonl`
+> - Delegation with session context
+> - Resume protocol (session discovery, resume header, respecting decisions)
 > - Context overflow protection (75% warning, 90% stop)
 
 ---
@@ -1129,8 +1129,9 @@ When delegating to sub-agents, **always pass a context block** with project path
 > ⛔ **MANDATORY CHECK BEFORE EVERY @developer DELEGATION**
 
 ```bash
-# Read analysis gate status from state file
-ANALYSIS_COMPLETED=$(jq -r '.activeWork.analysisCompleted // false' docs/builder-state.json 2>/dev/null)
+# Read analysis gate status from active session
+ACTIVE_SESSION=$(find docs/sessions -maxdepth 1 -mindepth 1 -type d ! -name archive 2>/dev/null | head -1)
+ANALYSIS_COMPLETED=$(jq -r '.analysisCompleted // false' "$ACTIVE_SESSION/session.json" 2>/dev/null)
 ```
 
 - If `true`: proceed with delegation
@@ -1164,7 +1165,7 @@ Load `builder-delegation` skill for full context block format and semantic searc
 ### Pipeline Loop
 
 ```
-for each story in activeWork.stories where status == "pending":
+for each chunk in session.chunks where status == "pending":
     run Pipeline Steps 1–6
 ```
 
@@ -1172,13 +1173,11 @@ for each story in activeWork.stories where status == "pending":
 
 **Step 1: Set story status → in_progress**
 
-Update `activeWork.stories[currentStoryIndex].status` to `"in_progress"` in `builder-state.json`.
+Update the current chunk's status to `"in_progress"` in `session.json` → `chunks[]`.
 
-**Reset per-story verification state:** Before processing each story, clear stale verification data from the previous story:
-- Set `verificationContract: null` in `builder-state.json`
-- Set `verificationResults: null` in `builder-state.json`
+Create the chunk folder (`docs/sessions/{id}/{storyId}-{NN}-{slug}/`) with initial `chunk.json`.
 
-> This ensures test-flow evaluates each story with a fresh contract, not a stale one from the previous story.
+> Per-chunk verification isolation: each chunk starts with a clean `verification` object in `chunk.json` — no stale data from previous chunks.
 
 **Step 2: Delegate implementation → @developer**
 
@@ -1215,15 +1214,17 @@ git commit -m "feat: [story description] ([story-id])"
 
 **Step 5: Update story status → completed**
 
-Update `activeWork.stories[currentStoryIndex]`:
+Update the current chunk in `session.json` → `chunks[]`:
 - `status`: `"completed"`
 - `committedAt`: ISO timestamp
 - `commitHash`: from `git rev-parse HEAD`
 - `testFlowResult`: pass/fail summary from Step 3
 
+Also update `chunk.json` with final verification results.
+
 **Step 6: Advance to next story**
 
-Increment `activeWork.currentStoryIndex`.
+Advance `session.json` → `currentChunk` to the next pending chunk.
 
 ### Failure Handling
 
@@ -1446,7 +1447,7 @@ After todos complete (and tests pass), analyze changed files:
 | New user-facing component | New UI | Prompt for support article |
 | Changes to settings/auth flows | User-facing change | Queue support article update |
 
-Update `builder-state.json` → `pendingUpdates` with detected items.
+Update `chunk.json` → `pendingUpdates` with detected items.
 
 ---
 
@@ -1566,14 +1567,7 @@ See AGENTS.md for format. Your filename prefix: `YYYY-MM-DD-builder-`
 
 ## Resuming Work
 
-On session start, check `docs/builder-state.json` → `activeWork`. If `activeWork` exists with any story whose `status` is not `completed`, `skipped`, or `cancelled`, show the **Resume Dashboard**.
-
-### Old-Format Field Detection
-
-If `builder-state.json` contains old-format fields (`activePrd`, `activeTask`, `adhocQueue`) **without** an `activeWork` field:
-- Clear the old fields entirely
-- Start fresh (no backward-compatibility migration)
-- Inform user: "Found legacy session state — cleared. Starting fresh."
+On session start, scan `docs/sessions/` for active session directories (excluding `archive/`). If an active session exists with `session.json` containing any chunk whose `status` is not `completed`, `skipped`, or `cancelled`, show the **Resume Dashboard**.
 
 ### Resume Dashboard
 
@@ -1582,10 +1576,10 @@ If `builder-state.json` contains old-format fields (`activePrd`, `activeTask`, `
                         RESUMABLE SESSION FOUND
 ═══════════════════════════════════════════════════════════════════════
 
-Mode:   {activeWork.mode} ({activeWork.source.prdId or taskId})
-Branch: {activeWork.branch}
+Mode:   {session.mode} ({session.prdId or taskId})
+Branch: {session.branch}
 
-Stories:
+Chunks:
   ✅ US-001  Create user model                    completed
   ✅ US-002  Add validation                        completed
   ❌ US-003  Implement auth flow                   failed
@@ -1597,9 +1591,9 @@ Files changed: src/models/User.ts, src/validation/auth.ts
 
 ───────────────────────────────────────────────────────────────────────
 
-[R] Resume from next pending story
-[A] Abort — mark remaining stories as cancelled
-[S] Start fresh — archive current work and begin new session
+[R] Resume from next pending chunk
+[A] Abort — mark remaining chunks as cancelled
+[S] Start fresh — archive current session and begin new one
 
 > _
 ═══════════════════════════════════════════════════════════════════════
@@ -1609,14 +1603,14 @@ Files changed: src/models/User.ts, src/validation/auth.ts
 
 ### Failed Story Handling
 
-If any stories have `status: "failed"`, list each failed story **individually** before showing the main options. The user must explicitly choose for each failed story — no automatic retry.
+If any chunks have `status: "failed"`, list each failed chunk **individually** before showing the main options. The user must explicitly choose for each failed chunk — no automatic retry.
 
 ```
 ═══════════════════════════════════════════════════════════════════════
-                     FAILED STORIES REQUIRE ACTION
+                     FAILED CHUNKS REQUIRE ACTION
 ═══════════════════════════════════════════════════════════════════════
 
-The following stories failed in the previous session:
+The following chunks failed in the previous session:
 
 ❌ US-003: Implement auth flow
    Error: test-flow failed — 2 unit tests failing
@@ -1624,33 +1618,33 @@ The following stories failed in the previous session:
 
    [R] Retry — reset to pending and re-run full pipeline
    [S] Skip — mark as skipped, move on
-   [A] Abort — stop all work, cancel remaining stories
+   [A] Abort — stop all work, cancel remaining chunks
 
 > _
 ═══════════════════════════════════════════════════════════════════════
 ```
 
-- **[R] Retry:** Reset `status` to `pending`, clear `testFlowResult`, clear `filesChanged`. Story will be re-processed through the full pipeline (implement → test-flow → commit).
-- **[S] Skip:** Set `status` to `skipped`. Story is excluded from further processing.
-- **[A] Abort:** Set all remaining non-completed stories to `cancelled`. End session.
+- **[R] Retry:** Reset `status` to `pending`, clear `testFlowResult`, clear `filesChanged`. Chunk will be re-processed through the full pipeline (implement → test-flow → commit).
+- **[S] Skip:** Set `status` to `skipped`. Chunk is excluded from further processing.
+- **[A] Abort:** Set all remaining non-completed chunks to `cancelled`. End session.
 
-After the user resolves all failed stories, show the main Resume Dashboard with the updated statuses.
+After the user resolves all failed chunks, show the main Resume Dashboard with the updated statuses.
 
-### In-Progress Story Handling
+### In-Progress Chunk Handling
 
-If a story has `status: "in_progress"` (interrupted mid-implementation):
+If a chunk has `status: "in_progress"` (interrupted mid-implementation):
 - Reset it to `pending` before showing the Resume Dashboard
-- Builder re-runs the full pipeline for that story from the beginning
-- Implementation is **not** resumable mid-story
+- Builder re-runs the full pipeline for that chunk from the beginning
+- Implementation is **not** resumable mid-chunk
 
 ### Resume Behavior by Choice
 
 | Choice | Behavior |
 |--------|----------|
-| **[R] Resume** | Continue from the first story with `status: "pending"` (after failed stories are resolved). Use the existing `activeWork` — do not re-analyze. Enter the Story Processing Pipeline directly. |
-| **[A] Abort** | Set all stories with `status: "pending"` to `cancelled`. Keep `completed` and `skipped` stories as-is. Clear `activeWork` from state. Report final status. |
-| **[S] Start fresh** | Archive current `activeWork` to `completedSessions[]` (if available), then clear `activeWork`. Start a new session from the main dashboard. |
+| **[R] Resume** | Continue from the first chunk with `status: "pending"` (after failed chunks are resolved). Use the existing session — do not re-analyze. Enter the Story Processing Pipeline directly. |
+| **[A] Abort** | Set all chunks with `status: "pending"` to `cancelled`. Keep `completed` and `skipped` chunks as-is. Archive the session. Report final status. |
+| **[S] Start fresh** | Archive the current session to `docs/sessions/archive/`, then start a new session from the main dashboard. |
 
-### No activeWork Present
+### No Active Session Present
 
-If `builder-state.json` exists but `activeWork` is `null` or absent, skip the Resume Dashboard and proceed to the normal startup dashboard.
+If no active session directory exists in `docs/sessions/` (or the directory is empty/only contains `archive/`), skip the Resume Dashboard and proceed to the normal startup dashboard.

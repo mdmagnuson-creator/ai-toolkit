@@ -17,7 +17,7 @@ description: "CLI detection and proactive usage patterns for Builder. Use when C
 
 ```bash
 # Check if we already have CLI state from a previous detection
-CLI_STATE=$(jq -r '.availableCLIs // empty' docs/builder-state.json 2>/dev/null)
+CLI_STATE=$(jq -r '.availableCLIs // empty' docs/builder-config.json 2>/dev/null)
 CLI_DETECTED_AT=$(echo "$CLI_STATE" | jq -r '.vercel.detectedAt // .gh.detectedAt // empty' 2>/dev/null)
 ```
 
@@ -42,10 +42,10 @@ which railway && railway whoami 2>/dev/null
 which wrangler && wrangler whoami 2>/dev/null
 ```
 
-### Step 4: Persist to builder-state.json (CRITICAL)
+### Step 4: Persist to builder-config.json (CRITICAL)
 
 ```bash
-# Read existing state, add/update availableCLIs, write back
+# Read existing config, add/update availableCLIs, write back
 TIMESTAMP=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
 jq --arg ts "$TIMESTAMP" '.availableCLIs = {
   "vercel": { "installed": true, "authenticated": true, "user": "team-name", "detectedAt": $ts },
@@ -56,7 +56,7 @@ jq --arg ts "$TIMESTAMP" '.availableCLIs = {
   "fly": { "installed": false, "authenticated": false },
   "railway": { "installed": false, "authenticated": false },
   "wrangler": { "installed": false, "authenticated": false }
-}' docs/builder-state.json > docs/builder-state.json.tmp && mv docs/builder-state.json.tmp docs/builder-state.json
+}' docs/builder-config.json > docs/builder-config.json.tmp && mv docs/builder-config.json.tmp docs/builder-config.json
 ```
 
 ### Step 5: Show in Dashboard
@@ -87,7 +87,7 @@ CLIs: vercel ✓ | supabase ✓ | gh ✓
 
 > ⛔ **NEVER tell the user to manually configure a service when you have CLI access.**
 >
-> Before ANY instruction like "Go to [service] dashboard and configure...", check `availableCLIs` in `builder-state.json`. If the CLI is authenticated, **use it directly**.
+> Before ANY instruction like "Go to [service] dashboard and configure...", check `availableCLIs` in `builder-config.json`. If the CLI is authenticated, **use it directly**.
 >
 > **Failure behavior:** If you find yourself about to write "Go to Vercel dashboard" or "Configure in Supabase console" — STOP. Check if CLI can do it.
 
@@ -123,7 +123,7 @@ CLIs: vercel ✓ | supabase ✓ | gh ✓
 About to tell user to configure something manually?
     │
     ▼
-Read availableCLIs from docs/builder-state.json
+Read availableCLIs from docs/builder-config.json
     │
     ▼
 Is the relevant CLI authenticated?

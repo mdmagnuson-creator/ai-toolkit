@@ -109,15 +109,17 @@ function generateContract(taskDescription, expectedFiles):
 
 ## Store Contract in State
 
-Write the contract to `docs/builder-state.json` before delegation:
+Write the contract to the current `chunk.json` → `verification.contract` before delegation:
 
 ```json
 {
-  "verificationContract": {
-    "type": "verifiable",
-    "criteria": [...],
-    "generatedFrom": "auto",
-    "generatedAt": "2026-02-28T10:00:00Z"
+  "verification": {
+    "contract": {
+      "type": "verifiable",
+      "criteria": [...],
+      "generatedFrom": "auto",
+      "generatedAt": "2026-02-28T10:00:00Z"
+    }
   }
 }
 ```
@@ -132,18 +134,16 @@ When an advisory task is detected, **proceed automatically** with logging:
    Proceeding...
 ```
 
-After completion, log the output to `builder-state.json` → `advisoryTasks[]`:
+After completion, log the output to `chunk.json` → `advisory`:
 
 ```json
 {
-  "advisoryTasks": [
-    {
-      "taskId": "adhoc-003",
-      "description": "Investigate why checkout API is slow",
-      "output": "Found N+1 query in OrderService.getItems()",
-      "completedAt": "2026-02-28T10:30:00Z"
-    }
-  ]
+  "advisory": {
+    "taskId": "adhoc-003",
+    "description": "Investigate why checkout API is slow",
+    "output": "Found N+1 query in OrderService.getItems()",
+    "completedAt": "2026-02-28T10:30:00Z"
+  }
 }
 ```
 
@@ -157,12 +157,12 @@ After completion, log the output to `builder-state.json` → `advisoryTasks[]`:
 After specialist reports done, verify against the contract:
 
 1. **Run each criterion** in the contract using existing test-flow
-2. **Record results** in `builder-state.json` → `verificationResults`:
+2. **Record results** in `chunk.json` → `verification.results`:
    ```json
    {
-     "verificationResults": {
-       "overall": "pass",
-       "criteria": [
+     "verification": {
+       "status": "pass",
+       "results": [
          { "activity": "typecheck", "status": "pass" },
          { "activity": "lint", "status": "pass" },
          { "activity": "unit-test", "status": "pass", "attempts": 1 },

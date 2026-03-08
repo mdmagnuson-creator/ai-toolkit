@@ -9,7 +9,7 @@ description: "Dashboard rendering templates for Builder sessions. Covers resume 
 
 ## Resume Dashboard
 
-If `builder-state.json` exists with work in progress, show options without auto-starting the PRD:
+If a `session.json` exists with work in progress (in `docs/sessions/current/`), show options without auto-starting the PRD:
 
 ```
 ═══════════════════════════════════════════════════════════════════════

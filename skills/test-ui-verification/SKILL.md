@@ -371,20 +371,22 @@ if verificationResult.status == "unverified":
 
 ## Recording Verification Results
 
-Update `builder-state.json`:
+Update the current chunk's `chunk.json` → `verification`:
 
 ```json
 {
-  "currentTask": {
-    "id": "task-123",
-    "verificationStatus": "verified",
-    "verificationDetails": {
-      "testsGenerated": ["tests/ui-verify/payment-form.spec.ts"],
-      "screenshotsCaptured": ["ai-tmp/verification/screenshots/payment-form.png"],
-      "testsPassed": true,
-      "attemptCount": 1,
-      "completedAt": "2026-03-03T10:35:00Z"
-    }
+  "verification": {
+    "status": "verified",
+    "results": [
+      {
+        "activity": "ui-verification",
+        "status": "pass",
+        "testsGenerated": ["tests/ui-verify/payment-form.spec.ts"],
+        "screenshotsCaptured": ["ai-tmp/verification/screenshots/payment-form.png"],
+        "attempts": 1,
+        "completedAt": "2026-03-03T10:35:00Z"
+      }
+    ]
   }
 }
 ```

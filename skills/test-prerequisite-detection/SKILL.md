@@ -423,6 +423,6 @@ Blocker resolved for 2/3 features.
 
 Updated:
   • test-debt.json — blocker marked resolved
-  • builder-state.json — verificationBlocked cleared for US-005, US-007
+  • session.json / chunk.json — verificationBlocked cleared for US-005, US-007
 ═══════════════════════════════════════════════════════════════════════
 ```

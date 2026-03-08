@@ -205,15 +205,15 @@ When user selects [A]:
    ⚠️ ABANDON FEATURE?
    
    This will revert all changes made for this story.
-   The story will be marked as "abandoned" in builder-state.json.
-   
-   Type "confirm" to proceed or "cancel" to go back.
-   > _
-   ```
+    The chunk will be marked as "abandoned" in session.json.
+    
+    Type "confirm" to proceed or "cancel" to go back.
+    > _
+    ```
 
 2. **On confirm:**
    - Revert story changes (git checkout)
-   - Update builder-state.json with abandoned status
+   - Update chunk status to `abandoned` in `session.json`
    - Log to verification-failures.json: `"resolution": "abandoned"`
 
 3. **Display result:**

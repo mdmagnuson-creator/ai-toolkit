@@ -51,13 +51,13 @@ PRD mode implements features defined in `docs/prds/prd-[name].json`. It operates
 
 ## Todo Sync Rules (PRD)
 
-Use OpenCode right-panel todos as the live checklist, mirrored to `docs/builder-state.json`.
+Use OpenCode right-panel todos as the live checklist, derived from `session.json` → `chunks[]`.
 
-1. Create one todo per story when PRD work starts (`US-001`, `US-002`, ...).
-2. Set current story to `in_progress`; keep remaining stories `pending`.
-3. When a story finishes and post-story checks pass, mark it `completed`.
-4. Persist each transition under `uiTodos.items` with `flow: "prd"` and `refId: <storyId>`.
-5. On session resume, rebuild right-panel todos from `uiTodos.items` before continuing.
+1. Create one todo per story/chunk when PRD work starts (`US-001`, `US-002`, ...).
+2. Set current chunk to `in_progress`; keep remaining chunks `pending`.
+3. When a chunk finishes and post-story checks pass, mark it `completed`.
+4. Each chunk's status in `session.json` drives the right-panel todo state.
+5. On session resume, rebuild right-panel todos from `session.json` → `chunks[]` before continuing.
 
 ## Post-Story Status Update (MANDATORY)
 
@@ -156,7 +156,7 @@ Before copying the PRD to the working location, inspect credential metadata in `
 - Read top-level `credentialRequirements[]` (if present).
 - For each entry with `requestTiming: "upfront"`, ask for credential readiness before starting story execution.
 - If user does not have a credential yet, mark it `deferred` and continue only with stories that do not depend on it.
-- Persist statuses in `builder-state.json` under `activeWork.credentials` with `pending|provided|deferred`.
+- Persist statuses in `session.json` under the session-level `credentials` field with `pending|provided|deferred`.
 - Never ask users to paste actual secrets into chat; request secure local setup via environment variables/secrets manager.
 
 If no credential requirements are listed, continue normally.
@@ -216,7 +216,7 @@ Before story execution begins, ensure architecture automation assets exist and a
 2. **Bounded-context docs** (generate when missing):
    - `docs/architecture/bounded-contexts.md`
    - optional `docs/architecture/contexts/*.md`
-3. Persist initialization status in `builder-state.json` under `activeWork.architecture`.
+3. Persist initialization status in `session.json` under session-level `architecture` field.
 
 Default policy:
 - `guardrails.strictness`: `standard`
@@ -270,14 +270,14 @@ For each story in priority order:
 >
 > **PRD-specific context to pass:**
 > - `mode: "prd"` — 5-attempt Playwright retry strategy (vs ad-hoc's 3-attempt)
-> - `storyId` and `prdId` from `builder-state.json` → `activeWork`
+ > - `storyId` and `prdId` from `session.json` → `currentChunk` and session metadata
 > - `storyChangedFiles` for story-scoped Playwright test selection
 >
 > **PRD-specific behaviors (defined in test-flow):**
 > - **Story-scoped Playwright:** Tests are scoped to changed files + 1-hop consumers (not full suite)
 > - **5-attempt retry:** On Playwright failure, retry up to 5 times with progressive fix delegation
-> - **Skip and log:** After 5 failures, skip Playwright and log to `activeWork.playwrightSkips[]`, then continue to next story
-> - **Playwright install check:** One-time per session check, cached in `builder-state.json`
+> - **Skip and log:** After 5 failures, skip Playwright and log to the chunk's `playwrightSkips` in `chunk.json`, then continue to next story
+ > - **Playwright install check:** One-time per session check, cached in `builder-config.json`
 >
 > **Failure behavior:** Steps 1-4 (typecheck/lint/test/critic): max 3 attempts, then STOP and report to user.
 > Step 5 (Playwright): max 5 attempts, then skip and log, continue to next story.
@@ -308,7 +308,7 @@ For each story in priority order:
    1. Parse story description for advisory/skip patterns
    2. Identify expected file changes from story context
    3. Generate criteria based on file patterns
-   4. Store contract in builder-state.json → verificationContract
+    4. Store contract in the current `chunk.json` → `verification.contract`
    ```
    
    **Include contract in specialist prompt:**
@@ -353,9 +353,9 @@ For each story in priority order:
 
 3. **Update heartbeat** periodically in session lock
 
-4. **Update story todo state in both stores (BEFORE commit):**
-   - Before implementation: mark current story `in_progress` via `todowrite` and `uiTodos.items`
-   - After implementation + required checks: mark story `completed` in both places
+4. **Update story todo state (BEFORE commit):**
+   - Before implementation: mark current chunk `in_progress` via `todowrite` and update `session.json`
+   - After implementation + required checks: mark chunk `completed` in both places
    - **⚠️ This must happen BEFORE Step 2.5 (commit)** to ensure state is included in the commit
 
 5. **Handle developer failures:**
@@ -369,14 +369,14 @@ For each story in priority order:
 
 Use `test-flow` as the canonical source for all test behavior.
 
-1. Read effective story intensity from `builder-state.json` (`activeWork.stories[]` for current story).
+1. Read effective story intensity from `session.json` (`chunks[]` for current chunk).
 2. Execute **PRD Mode Test Flow (US-003)** from `test-flow` for any remaining E2E handling.
 3. Do not duplicate test logic here. Follow `test-flow` for:
    - E2E test generation based on story intensity
    - E2E deferral to PRD completion (when intensity allows deferral)
    - Retry/fix loops and failure handling
-   - `builder-state.json` updates for queued tests
-4. After test-flow completes for the story, update story status in `activeWork.stories[]` to `completed` and continue.
+   - `chunk.json` updates for queued tests
+4. After test-flow completes for the story, update chunk status in `session.json` to `completed` and continue.
 
 ### Step 2.5: Update State & Commit After Each Story
 
@@ -384,7 +384,7 @@ Use `test-flow` as the canonical source for all test behavior.
 >
 > State updates that happen after the commit will be lost if the session ends.
 >
-> **Failure behavior:** If you find yourself about to run `git commit` without first updating `docs/prd.json` (story status + `passes: true`), `docs/builder-state.json`, and `docs/prd-registry.json` — STOP and update those files before committing.
+> **Failure behavior:** If you find yourself about to run `git commit` without first updating `docs/prd.json` (story status + `passes: true`), `session.json`, `chunk.json`, and `docs/prd-registry.json` — STOP and update those files before committing.
 
 After a story completes and post-story checks pass:
 
@@ -395,11 +395,11 @@ After a story completes and post-story checks pass:
   - Set `completedAt: <ISO timestamp>`
   - Set `passes: true`
   - Add `notes` with brief completion summary (e.g., "Implemented with 3 components, added unit tests")
-- **`docs/builder-state.json`:**
-  - Move story from `storiesPending` to `storiesCompleted`
-  - Clear `currentStory` (or set to next story)
-  - Update `uiTodos.items` to mark story `completed`
-   - Update story status in `activeWork.stories[]` to `completed`
+- **`session.json` + `chunk.json`:**
+   - Update current chunk status to `completed` in `session.json`
+   - Set `currentChunk` to next chunk (or null if done)
+   - Chunk's `chunk.json` already records verification results
+   - Update story status in current chunk to `completed`
 - **`docs/prd-registry.json`** — update `currentStory` field and increment completed count
 
 **2. Then commit (including state files):**
@@ -410,7 +410,7 @@ After a story completes and post-story checks pass:
 
 ```bash
 # Verify state files are staged before committing
-git add -A  # includes prd.json, builder-state.json, prd-registry.json
+git add -A  # includes prd.json, session.json, chunk.json, prd-registry.json
 git status  # confirm state files are in staged changes
 git commit -m "feat: [summary from PRD] (US-00X)"
 ```
@@ -432,7 +432,7 @@ After each story, detect boundary-impacting changes and refresh docs/guardrails 
 2. If drift detected:
    - refresh guardrail artifacts
    - refresh bounded-context docs
-3. Record a short change summary in `builder-state.json` (`activeWork.architecture.boundaryChanges[]`).
+3. Record a short change summary in `session.json` (session-level `architecture.boundaryChanges[]`).
 
 ### Critic Batching
 
@@ -495,7 +495,7 @@ If boundary-impacting changes were detected during the PRD:
 
 ### Step 2: Run ALL Queued E2E Tests
 
-First, gather all queued E2E tests from `builder-state.json`:
+First, gather all queued E2E tests from completed chunks' `chunk.json` files:
 - All tests in `pendingTests.e2e.generated[]`
 - This includes story E2E tests AND any ad-hoc E2E tests deferred to PRD completion
 
@@ -793,14 +793,13 @@ If `state: "MERGED"`:
    ' docs/prd-registry.json > docs/prd-registry.json.tmp && mv docs/prd-registry.json.tmp docs/prd-registry.json
    ```
 
-5. **Clear E2E queue and verification state:**
-   - Remove `pendingTests.e2e` from `builder-state.json`
+5. **Clear E2E queue from chunk files:**
+   - Clear `pendingTests.e2e` from each chunk's `chunk.json`
    - Clear `deferredTo` flag
-   - **Reset top-level verification state** — set `verificationContract: null`, `verificationResults: null`, `pendingTests: {}` in `builder-state.json`
 
-   > ⛔ **The verification state reset is MANDATORY.** Without it, the next task (ad-hoc or PRD)
-   > inherits stale `verificationContract` and `verificationResults` from this PRD, potentially
-   > causing test-flow to skip real verification.
+   > ℹ️ **No top-level verification reset needed.** Per-chunk verification isolation in `chunk.json` means
+   > each chunk owns its own `verification.contract` and `verification.results`. When a new task starts,
+   > it gets a fresh chunk with clean verification state — no cross-contamination is possible.
 
 6. **Run @prd-impact-analyzer:**
    - Check if completed work unblocks other PRDs
