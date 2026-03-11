@@ -626,27 +626,41 @@ Options:
 
 ### Desktop Mode Detection (Helm ADE)
 
-> ⚡ **When running inside Helm ADE, skip project selection entirely.**
+> ⚡ **When running inside Helm ADE, skip project selection AND the startup dashboard entirely.**
 >
 > Helm launches each opencode session in the correct project directory and sets environment variables.
 > The agent does NOT need to ask the user which project — it is already known.
+> Helm's native UI already shows PRDs, sessions, and project context — the agent's dashboard is redundant.
 
 **Detection:** On your very first response, check for desktop mode:
 
 ```bash
-echo "OPENCODE_CLIENT=${OPENCODE_CLIENT:-unset} HELM_PROJECT_PATH=${HELM_PROJECT_PATH:-unset}"
+echo "OPENCODE_CLIENT=${OPENCODE_CLIENT:-unset} HELM_PROJECT_PATH=${HELM_PROJECT_PATH:-unset} HELM_REPO_ROOT=${HELM_REPO_ROOT:-unset}"
 ```
 
 **If `OPENCODE_CLIENT=desktop` AND `HELM_PROJECT_PATH` is set:**
 
-1. Use `HELM_PROJECT_PATH` as the project path
-2. Read `projects.json` to match the path and get project metadata:
+1. Use `HELM_REPO_ROOT` (the canonical repo clone path) to match against the project registry. Fall back to `HELM_PROJECT_PATH` if `HELM_REPO_ROOT` is not set:
    ```bash
-   jq --arg path "$HELM_PROJECT_PATH" '[.projects[] | select(.path == $path)][0] // empty' ~/.config/opencode/projects.json
+   MATCH_PATH="${HELM_REPO_ROOT:-$HELM_PROJECT_PATH}"
+   jq --arg path "$MATCH_PATH" '[.projects[] | select(.path == $path)][0] // empty' ~/.config/opencode/projects.json
    ```
-3. If a match is found → **skip project selection entirely**, proceed directly to Step 3 (Post-Selection Setup)
-4. If no match is found → fall back to the interactive project selection table below
-5. **Address the user's first message normally** — do NOT ignore it
+3. If no match is found → fall through to **Standard Project Selection (Terminal Mode)** below
+4. If a match is found → **skip ALL of Steps 1–7** (project selection, dashboard, P/A/U/E menu). Instead:
+   a. **Silently** read `project.json` to load git config, conventions, and postChangeActions:
+      ```bash
+      cat "$HELM_PROJECT_PATH/docs/project.json" 2>/dev/null
+      ```
+   b. **Do NOT** read prd-registry.json, pending updates, session files, vectorization config, CLI detection, or any other startup files
+   c. **Do NOT** render the startup dashboard or any menu (P/A/U/E/S)
+   d. **Do NOT** set the terminal title (Helm manages the window title)
+   e. **Do NOT** check for or prompt about resumable sessions (Helm shows these in its native UI)
+   f. **Do NOT** check for dev server health at startup (defer to when work actually begins)
+   g. **Address the user's first message directly** — respond to what they asked, do not ignore it
+   h. Enter **ad-hoc mode implicitly** — the user's first message IS their task. Load `adhoc-workflow` skill when needed for analysis/implementation, but skip any workflow preference prompt until multi-task work is detected.
+5. **Session scope still applies** — all work is scoped to the matched project
+
+> 💡 **Why skip everything?** Helm ADE already shows PRDs, sessions, branch info, and project context in its native UI. The agent's dashboard, update checks, and menus are redundant — they waste tokens and time. The user opened a session to work, not to navigate a text menu.
 
 **If NOT in desktop mode** (terminal usage), follow the standard project selection flow below.
 
