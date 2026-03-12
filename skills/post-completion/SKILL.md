@@ -41,19 +41,13 @@ If ANY stories modified UI files (`.tsx`, `.jsx`, `.css`, `.scss`):
 
 ---
 
-## Step B: Run Post-Change Actions
+## Step B: Post-Change Actions (Managed by Helm)
 
-> **Support articles, AI tools, marketing pages, and other downstream propagation are now handled by `postChangeActions` in `project.json`.**
-> These fire automatically after each story commit (see `test-flow` → Section 5.5).
-> By the time post-completion runs, per-story postChangeActions have already executed.
-
-At this point, check if any **PRD-level** post-change actions remain:
-
-1. **Review `postChangeActions` with `trigger: "feature-change"`** — these may need a final holistic pass now that the full feature is implemented
-2. **If any pending-update actions target a related project**, verify the update files were created during story commits
-3. **If any agent actions were configured**, verify the agents completed successfully
-
-If all post-change actions already ran per-story, no additional action needed here.
+> Post-change and session-completion actions are managed by Helm ADE externally.
+> Agents do NOT read, execute, or manage `postChangeActions` — Helm handles this automatically
+> through its Session Actions system (configured in Project Settings).
+>
+> **No action required by the agent in this step.** Proceed to Step C.
 
 ---
 

@@ -136,10 +136,10 @@ canonicalSource:
         | desktop  | electron  | true       | rebuild  |
         ...
         
-        ### Post-Change Actions (after commit)
-        project.json → postChangeActions[] defines downstream propagation
-        (support articles, AI tools, marketing pages, pending updates).
-        See test-flow → Section 5.5 for execution details.
+        ### Post-Change Actions (Managed by Helm)
+        Post-change and session-completion actions are managed by Helm ADE externally.
+        Agents do NOT read, execute, or manage postChangeActions.
+        Helm handles this through its Session Actions system.
     - file: skills/auth-headless/SKILL.md
       lines: "331-359"
       content: |

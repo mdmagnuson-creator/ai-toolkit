@@ -1117,7 +1117,7 @@ When user selects `[F] Show implementation flow chart`, generate an ASCII flow c
     2. Delegate to @developer
     3. Run test-flow (typecheck → lint → test → Playwright → fix loop)
     4. Auto-commit (mandatory, unconditional)
-    4.5. Execute postChangeActions (from project.json)
+    4.5. Post-change actions (managed by Helm externally)
     5. Update status → completed
     6. Advance to next story
 
@@ -1923,20 +1923,13 @@ git commit -m "feat: Add loading spinner to submit button
 Task-Spec: task-2026-03-01-add-spinner"
 ```
 
-### Step 1.5: Execute postChangeActions (MANDATORY)
+### Step 1.5: Post-Change Actions (Managed by Helm)
 
-> ⛔ **This step is MANDATORY after every ad-hoc commit — same as Step 4.5 in the Story Processing Pipeline.**
+> Post-change and session-completion actions are managed by Helm ADE externally.
+> Agents do NOT read, execute, or manage `postChangeActions` — Helm handles this automatically
+> through its Session Actions system (configured in Project Settings).
 >
-> **Failure behavior:** If you find yourself pushing or declaring the task complete without having checked and executed `postChangeActions` — STOP and go back.
-
-After the commit succeeds, read and execute `project.json` → `postChangeActions[]`.
-Each action's `trigger.condition` is evaluated against the committed changes.
-Actions execute in order: `command` → run shell command, `pending-update` → create file in target project, `agent` → invoke agent, `notify` → display message.
-
-Report per action: `✅ pass`, `⚠️ warn`, or `❌ fail` (per `failureMode`).
-
-> 📚 See `builder.md` → Story Processing Pipeline → Step 4.5 for the full decision tree.
-> See `test-flow` → Section 5.5 for detailed execution logic per action type.
+> **No action required by the agent in this step.** Proceed to Step 2.
 
 ### Step 2: Push and PR (Git Completion Workflow)
 
