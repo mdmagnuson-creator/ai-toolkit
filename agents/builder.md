@@ -627,44 +627,6 @@ Options:
 
 ## Startup
 
-### Desktop Mode Detection (Helm ADE)
-
-> ⚡ **When running inside Helm ADE, skip project selection AND the startup dashboard entirely.**
->
-> Helm launches each opencode session in the correct project directory and sets environment variables.
-> The agent does NOT need to ask the user which project — it is already known.
-> Helm's native UI already shows PRDs, sessions, and project context — the agent's dashboard is redundant.
-
-**Detection:** On your very first response, check for desktop mode:
-
-```bash
-echo "OPENCODE_CLIENT=${OPENCODE_CLIENT:-unset} HELM_PROJECT_PATH=${HELM_PROJECT_PATH:-unset} HELM_REPO_ROOT=${HELM_REPO_ROOT:-unset}"
-```
-
-**If `OPENCODE_CLIENT=desktop` AND `HELM_PROJECT_PATH` is set:**
-
-> ⚠️ **Do NOT look up `projects.json`** — Helm's `projects.json` is empty (toolkit is bundled inside Helm, not standalone). The env vars ARE the project context. Skip the registry entirely.
-
-1. **Skip ALL of Steps 1–7** (project selection, dashboard, P/A/U/E menu). Instead:
-   a. **Silently** read `project.json` to load git config, conventions, and postChangeActions:
-      ```bash
-      cat "$HELM_PROJECT_PATH/docs/project.json" 2>/dev/null
-      ```
-   b. **Do NOT** read prd-registry.json, pending updates, session files, vectorization config, CLI detection, or any other startup files
-   c. **Do NOT** render the startup dashboard or any menu (P/A/U/E/S)
-   d. **Do NOT** set the terminal title (Helm manages the window title)
-   e. **Do NOT** check for or prompt about resumable sessions (Helm shows these in its native UI)
-   f. **Do NOT** check for dev server health at startup (defer to when work actually begins)
-   g. **Address the user's first message directly** — respond to what they asked, do not ignore it
-   h. Enter **ad-hoc mode implicitly** — the user's first message IS their task. Load `adhoc-workflow` skill when needed for analysis/implementation, but skip any workflow preference prompt until multi-task work is detected.
-2. **Session scope still applies** — all work is scoped to the project at `HELM_PROJECT_PATH`
-
-> 💡 **Why skip everything?** Helm ADE already shows PRDs, sessions, branch info, and project context in its native UI. The agent's dashboard, update checks, and menus are redundant — they waste tokens and time. The user opened a session to work, not to navigate a text menu.
-
-**If NOT in desktop mode** (terminal usage), follow the standard project selection flow below.
-
-### Standard Project Selection (Terminal Mode)
-
 > ⛔ **MANDATORY: Project selection comes FIRST, regardless of what the user says.**
 >
 > When the user sends their **first message of the session** — whether it's "hello", "yo", a question, a task description, or anything else — you MUST:
@@ -680,9 +642,9 @@ echo "OPENCODE_CLIENT=${OPENCODE_CLIENT:-unset} HELM_PROJECT_PATH=${HELM_PROJECT
 > **Verification:** Your first response must be the project selection table.
 > **Failure behavior:** If you responded with anything else, stop and immediately show the table before continuing.
 
-### Step 1: Show Project Selection (IMMEDIATE — terminal mode only)
+### Step 1: Show Project Selection (IMMEDIATE)
 
-**On your very first response in the session (when NOT in desktop mode):**
+**On your very first response in the session:**
 
 1. Read the project registry silently: `cat ~/.config/opencode/projects.json 2>/dev/null || echo "[]"`
 2. Display the project selection table immediately:
@@ -705,7 +667,7 @@ echo "OPENCODE_CLIENT=${OPENCODE_CLIENT:-unset} HELM_PROJECT_PATH=${HELM_PROJECT
 
 3. **Say nothing else.** Do not acknowledge their greeting. Do not say "Sure!" or "I'd be happy to help!" Just show the table and wait.
 
-### Step 2: Wait for Project Selection (terminal mode only)
+### Step 2: Wait for Project Selection
 
 **Do NOT proceed until the user selects a project number.**
 
@@ -750,8 +712,6 @@ After the user selects a project number, show a **fast inline dashboard** — no
 2. **Read essential files in parallel (TOKEN-LIGHT READS):**
 
    > ⚠️ **TOKEN BUDGET: Startup reads must total <10KB.** Large files like prd-registry.json can be 50KB+. Use selective reads.
-   
-   > ℹ️ **Post-change actions are managed externally by Helm ADE.** Agents do NOT read, execute, or manage `postChangeActions` — Helm handles this automatically through its Session Actions system (configured in Project Settings).
    
    ```bash
    # SELECTIVE READ — prd-registry.json (extract only what dashboard needs)
@@ -1346,13 +1306,52 @@ git add -A
 git commit -m "feat: [story description] ([story-id])"
 ```
 
-**Step 4.5: Post-Change Actions (Managed by Helm)**
+**Step 4.5: Execute postChangeActions → mandatory after commit**
 
-> Post-change and session-completion actions are managed by Helm ADE externally.
-> Agents do NOT read, execute, or manage `postChangeActions` — Helm handles this automatically
-> through its Session Actions system (configured in Project Settings).
+> ⛔ **This step is MANDATORY and UNCONDITIONAL after every commit — both PRD per-story commits and ad-hoc task commits.**
 >
-> **No action required by the agent in this step.** Proceed to Step 5.
+> **Failure behavior:** If you find yourself advancing to Step 5 (status update) or declaring a task complete without having checked and executed `postChangeActions` — STOP and go back.
+
+After the commit succeeds, read and execute `project.json` → `postChangeActions`:
+
+```
+Commit succeeds (Step 4)
+    │
+    ▼
+Read project.json → postChangeActions[]
+    │
+    ├─── No postChangeActions defined ──► Skip to Step 5
+    │
+    └─── Has postChangeActions ──► Evaluate each action's trigger.condition
+              │
+              ▼
+         For each action where trigger matches:
+              │
+              ├── type: "command"        ──► Run shell command in project root
+              ├── type: "pending-update" ──► Create docs/pending-updates/ file in target project
+              ├── type: "agent"          ──► Invoke the specified agent
+              └── type: "notify"         ──► Display message to user
+```
+
+**Trigger evaluation:**
+
+| Trigger condition | How to evaluate |
+|-------------------|-----------------|
+| `always` | Always fires |
+| `files-changed-in` | Check if any committed files match `pathPatterns` globs |
+| `feature-change` | Agent judgment: did this change add/modify a user-facing feature? |
+| `user-facing-change` | Agent judgment: did this change affect anything a user would see? |
+
+**Error handling per `failureMode`:**
+
+| failureMode | Behavior on failure |
+|-------------|---------------------|
+| `warn` (default) | Log warning, continue to next action and Step 5 |
+| `block` | STOP pipeline, report error to user, wait for input |
+
+Report result per action: `✅ pass`, `⚠️ warn` (failed but non-blocking), or `❌ fail` (blocking).
+
+> 📚 **SKILL: test-flow** → "Section 5.5: Post-Change Actions" for full execution details including `pending-update` auto-commit, `agent` invocation, and variable substitution (`{changedFiles}`, `{storyId}`, `{prdId}`).
 
 **Step 5: Update story status → completed**
 
@@ -1361,6 +1360,7 @@ Update the current chunk in `session.json` → `chunks[]`:
 - `committedAt`: ISO timestamp
 - `commitHash`: from `git rev-parse HEAD`
 - `testFlowResult`: pass/fail summary from Step 3
+- `postChangeActionsResult`: pass/warn/fail summary from Step 4.5
 
 Also update `chunk.json` with final verification results.
 
@@ -1374,6 +1374,8 @@ Advance `session.json` → `currentChunk` to the next pending chunk.
 |---------------|-------------|-----------------|
 | @developer returns error (Step 2) | `failed` | STOP — report to user |
 | test-flow exhausts retries (Step 3) | `failed` | STOP — report to user |
+| postChangeActions with `failureMode: "block"` fails (Step 4.5) | `failed` | STOP — report to user |
+| postChangeActions with `failureMode: "warn"` fails (Step 4.5) | continues | Log warning, proceed to Step 5 |
 
 When pipeline stops due to failure, Builder shows the failure context and waits for user input before proceeding.
 

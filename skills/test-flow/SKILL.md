@@ -605,7 +605,7 @@ Build & Deploy:
 
 | Choice | Action |
 |--------|--------|
-| **C** | Commit the changes |
+| **C** | Commit the changes, then execute postChangeActions (see Section 5.5) |
 | **N** | Return to task prompt |
 
 ### Automatic E2E Execution
@@ -668,13 +668,79 @@ Options:
 
 ---
 
-## Section 5.5: Post-Change Actions (Managed by Helm)
+## Section 5.5: Post-Change Actions (After Commit)
 
-> Post-change and session-completion actions are managed by Helm ADE externally.
-> Agents do NOT read, execute, or manage `postChangeActions` — Helm handles this automatically
-> through its Session Actions system (configured in Project Settings).
+> ⛔ **MANDATORY — corresponds to Story Processing Pipeline Step 4.5 in `builder.md`.**
 >
-> **No action required by the agent after commit.** Proceed to next story or session end.
+> **Runs AFTER commit, not before.** postChangeActions fire once per commit to propagate changes downstream.
+> These are distinct from the quality pipeline (Section 3) which runs before commit.
+>
+> **Applies to ALL commit paths:** PRD per-story commits (Pipeline Step 4), ad-hoc task commits (Phase 2 → Step 1), and any other auto-commit.
+> **Failure behavior:** If Builder commits and moves on without checking postChangeActions, the pipeline contract is violated.
+
+After the user chooses **[C] Commit** and the commit succeeds, check `project.json` → `postChangeActions`:
+
+```
+Commit succeeds
+    │
+    ▼
+Read project.json → postChangeActions[]
+    │
+    ├─── No postChangeActions defined ──► Done (proceed to next story or session end)
+    │
+    └─── Has postChangeActions ──► Evaluate each action's trigger condition
+              │
+              ▼
+         For each action where trigger matches:
+              │
+              ├── type: "pending-update" ──► Create docs/pending-updates/ file in target project, auto-commit
+              ├── type: "agent"          ──► Invoke the specified agent (@support-article-writer, @tools-writer, etc.)
+              ├── type: "command"        ──► Run the shell command
+              └── type: "notify"         ──► Display the message to the user
+```
+
+### Trigger Evaluation
+
+For each action in `postChangeActions[]`:
+
+| Trigger | How to evaluate |
+|---------|-----------------|
+| `always` | Always fires |
+| `files-changed-in` | Check if any committed files match `pathPatterns` globs |
+| `feature-change` | Agent judgment: did this change add/modify a user-facing feature? |
+| `user-facing-change` | Agent judgment: did this change affect anything a user would see? |
+
+### Action Execution
+
+**`pending-update`:**
+1. Resolve `targetProject` via `relatedProjects` in `project.json`
+2. Look up the target project path from `projects.json`
+3. Create a pending update file: `<target-project>/docs/pending-updates/YYYY-MM-DD-<source>-sync.md`
+4. Auto-commit the file to the target project repo:
+   ```bash
+   cd <target-project> && git add docs/pending-updates/ && git commit -m "chore: Queue sync update from <source-project>"
+   ```
+
+**`agent`:**
+1. Invoke the specified agent with the `prompt` template
+2. Pass changed files and story context
+3. Wait for agent completion before proceeding
+
+**`command`:**
+1. Run `command` in the project root
+2. If `failureMode` is `warn` (default), log warning on failure but continue
+3. If `failureMode` is `block`, stop and report error
+
+**`notify`:**
+1. Display `message` template to the user (variable substitution: `{changedFiles}`, `{storyId}`, `{prdId}`)
+2. Continue immediately (no user response needed)
+
+### Error Handling
+
+- Post-change actions are **fire-once, best-effort by default**
+- A failing action does NOT roll back the commit
+- Failed actions are logged but do not block the next story
+- Exception: actions with `failureMode: "block"` will stop and report
 
 ---
 
