@@ -1016,6 +1016,12 @@
       {
         "type": "feat",
         "scope": "agents",
+        "description": "enforce mandatory delegation in Builder — all source code reading to @explore, all code writing to @developer, with identity lock, write scope restrictions, and investigation protocol",
+        "hash": "839eaa7"
+      },
+      {
+        "type": "feat",
+        "scope": "agents",
         "description": "add soul personality layer to Builder and Planner — tone, voice, communication style directives with read-at-startup pattern",
         "hash": "23d9c0c"
       },
