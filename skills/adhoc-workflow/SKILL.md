@@ -297,6 +297,14 @@ Run analysis with visible progress indicator:
 
 **Analysis methods (run in parallel, 10-second timeout):**
 
+Builder performs this analysis directly using search tools — no @explore delegation:
+
+- **`grep`** — Find files containing relevant keywords, function names, component names
+- **`glob`** — Find files by name pattern (e.g., `**/SubmitButton.*`, `**/checkout/**`)
+- **`semantic_search`** — Find related code by intent (if vectorization is enabled)
+
+These tools return file names, line numbers, and short snippets — not full file contents. They do not violate the Mandatory Delegation rule (which targets the Read tool on source files).
+
 1. **Locate the affected area** — Identify which files/components are involved (file names, not internals)
 2. **Side-effect check** — Quick scan for:
    - Does this touch an API contract or shared type?
@@ -308,7 +316,7 @@ Run analysis with visible progress indicator:
 - Does NOT read implementation details of affected files (the specialist does this)
 - Does NOT evaluate which APIs, patterns, or components to use
 - Does NOT trace call graphs or dependency chains in depth
-- Does NOT delegate deep exploration to @explore — save that for the specialist
+- Does NOT delegate to @explore — save that for implementation phases where deep code understanding is needed
 
 The Playwright probe (Step 0.1b) provides the primary evidence for current behavior. Code analysis here just identifies the *area* so the probe knows *where* to look.
 
