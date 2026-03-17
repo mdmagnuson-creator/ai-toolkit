@@ -1,7 +1,7 @@
 {
   "$schema": "https://opencode.ai/schemas/toolkit-structure.json",
   "version": "1.0.0",
-  "generatedAt": "2026-03-17T12:00:00Z",
+  "generatedAt": "2026-03-17T14:00:00Z",
   "repository": "https://github.com/mdmagnuson-creator/yo-go",
   "agents": {
     "total": 65,
@@ -142,7 +142,7 @@
           {
             "name": "tester",
             "file": "agents/tester.md",
-            "description": "Orchestrates test writing by routing to specialist testing agents"
+            "description": "Orchestrates test writing by routing to specialist testing agents including Swift/XCUITest via @swift-dev"
           }
         ]
       },
@@ -1030,9 +1030,15 @@
   "entries": [
     {
       "type": "feat",
+      "scope": "agents,data",
+      "description": "add XCUITest/Swift routing to tester agent — native Apple platform detection (swiftui/appkit/uikit), .swift file delegation to @swift-dev, XCUITest delegation prompt template, xcodebuild test execution guidance; fix skill-mapping.json xcuitest skill reference and add native Apple platform/routing/suggestion entries",
+      "hash": "5f88788"
+    },
+    {
+      "type": "feat",
       "scope": "agents,skills,schemas",
       "description": "add XCUITest support — new ui-test-xcuitest skill for native macOS/iOS testing, update swift-dev with XCUITest test writing capability, update swift-critic with XCUITest review criteria (Section 8), add swift/kotlin/dart to project schema language enum",
-      "hash": "pending"
+      "hash": "c87e9e8"
     },
     {
       "type": "refactor",
