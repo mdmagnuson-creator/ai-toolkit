@@ -97,6 +97,15 @@ function determineVerificationStrategy(project, changedFiles):
           default:
             return { strategy: "no-automated-verify", notes: "Mobile native verification not yet supported" }
       
+      # Native Apple apps — XCUITest, not Playwright
+      if appConfig.type == "desktop" and appConfig.framework in ["swiftui", "appkit", "swiftui-appkit"]:
+        return { strategy: "xcuitest",
+                 notes: "Native macOS app — use XCUITest via @swift-dev with ui-test-xcuitest skill, NOT Playwright browser verification" }
+      
+      if appConfig.type == "mobile" and appConfig.framework in ["swiftui", "uikit", "swiftui-uikit"]:
+        return { strategy: "xcuitest",
+                 notes: "Native iOS app — use XCUITest via @swift-dev with ui-test-xcuitest skill, NOT Playwright browser verification" }
+      
       if appConfig.type in ["frontend", "fullstack"]:
         return { strategy: "browser", baseUrl: resolveTestBaseUrl(project) }
   
@@ -108,9 +117,11 @@ function determineVerificationStrategy(project, changedFiles):
 | App Type | webContent | Strategy | How Verification Works |
 |----------|------------|----------|------------------------|
 | frontend/fullstack | n/a | `browser` | Standard Playwright against dev server (HMR) |
-| desktop | `bundled` | `rebuild-then-launch-app` | **Build** → **relaunch Electron** → verify with Playwright-Electron |
-| desktop | `remote` | `ensure-electron-running` | Ensure Electron process is running (HMR handles code changes) → verify with Playwright-Electron |
-| desktop | `hybrid` | `rebuild-then-launch-app` | **Build** → **relaunch Electron** → verify with Playwright-Electron |
+| desktop (Electron) | `bundled` | `rebuild-then-launch-app` | **Build** → **relaunch Electron** → verify with Playwright-Electron |
+| desktop (Electron) | `remote` | `ensure-electron-running` | Ensure Electron process is running (HMR handles code changes) → verify with Playwright-Electron |
+| desktop (Electron) | `hybrid` | `rebuild-then-launch-app` | **Build** → **relaunch Electron** → verify with Playwright-Electron |
+| desktop (swiftui/appkit) | n/a | `xcuitest` | Route to `@swift-dev` with `ui-test-xcuitest` skill — **NOT** Playwright |
+| mobile (swiftui/uikit) | n/a | `xcuitest` | Route to `@swift-dev` with `ui-test-xcuitest` skill — **NOT** Playwright |
 | mobile | `remote` | `verify-web-url` | Test web URL directly in browser |
 | mobile | other | `no-automated-verify` | No automated UI verify yet |
 | backend/cli | n/a | `not-required` | No UI verification |
@@ -503,7 +514,14 @@ This mode is invoked by Builder during the ad-hoc workflow **Step 0.1b** — aft
 function determineProbeTransport(project):
   for appName, appConfig in project.apps:
     if appConfig.type == "desktop":
-      # Desktop app detected — MUST use Electron transport
+      # Native Apple app — NOT a Playwright target
+      if appConfig.framework in ["swiftui", "appkit", "swiftui-appkit"]:
+        return {
+          transport: "xcuitest",
+          notes: "Native macOS app — route to @swift-dev with ui-test-xcuitest skill, NOT Playwright"
+        }
+      
+      # Desktop Electron app — MUST use Electron transport
       return {
         transport: "electron",
         executablePath: appConfig.testing?.executablePath?.[platform],
@@ -512,6 +530,14 @@ function determineProbeTransport(project):
         authHelper: project.authentication?.headless?.helperModule,
         notes: "Connect Playwright to the Electron process, NOT a browser against localhost"
       }
+    
+    if appConfig.type == "mobile":
+      # Native iOS app — NOT a Playwright target
+      if appConfig.framework in ["swiftui", "uikit", "swiftui-uikit"]:
+        return {
+          transport: "xcuitest",
+          notes: "Native iOS app — route to @swift-dev with ui-test-xcuitest skill, NOT Playwright"
+        }
   
   # No desktop app — standard browser probe
   return {
@@ -524,6 +550,8 @@ function determineProbeTransport(project):
 |----------|-----------|-------------------|
 | Web/fullstack | `browser` | Standard Playwright against `http://localhost:{devPort}` |
 | Desktop (any `webContent`) | `electron` | Playwright `_electron.launch()` with `executablePath` from `project.json` → `apps.desktop.testing` |
+| Desktop (swiftui/appkit) | `xcuitest` | NOT a Playwright probe — route to `@swift-dev` with `ui-test-xcuitest` skill |
+| Mobile (swiftui/uikit) | `xcuitest` | NOT a Playwright probe — route to `@swift-dev` with `ui-test-xcuitest` skill |
 
 > ⛔ **Even `webContent: "remote"` desktop apps use Electron transport.** The web content loads inside Electron's renderer process — probing `localhost` in a browser misses IPC, preload scripts, Electron-specific navigation, and desktop window behavior.
 
