@@ -1032,7 +1032,7 @@
       "type": "fix",
       "scope": "agents,config",
       "description": "pin explore subagent to claude-opus-4.5 via opencode.json, add model pin to tester and ui-tester-playwright delegation context blocks to prevent subagent model inheritance from 4.6 primary agents",
-      "hash": "pending"
+      "hash": "15f22ca"
     },
     {
       "type": "feat",
